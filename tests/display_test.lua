@@ -108,3 +108,29 @@ test("breakdown keeps a fraction of a percent", function()
   eq(lines[1], "  99.5% Large Brilliant Shard x1")
   eq(lines[2], "  0.5% Nexus Crystal x1")
 end)
+
+-- Scan progress -------------------------------------------------------------
+
+test("no scan running means no progress text", function()
+  eq(Display.ScanProgress({}, L), nil)
+end)
+
+test("material searches show how far along they are", function()
+  eq(Display.ScanProgress({ materials = { done = 6, total = 24 } }, L), "Materials 25%")
+end)
+
+test("a requested full scan waits for the server before it can count", function()
+  eq(Display.ScanProgress({ waiting = true }, L), "Waiting for server")
+end)
+
+test("reading a full scan shows its percentage, rounded down", function()
+  eq(Display.ScanProgress({ reading = { done = 999, total = 1000 } }, L), "Reading scan 99%")
+end)
+
+test("reading the full scan wins over the material searches", function()
+  eq(Display.ScanProgress({ materials = { done = 1, total = 24 }, reading = { done = 1, total = 2 } }, L), "Reading scan 50%")
+end)
+
+test("an empty total does not divide by zero", function()
+  eq(Display.ScanProgress({ reading = { done = 0, total = 0 } }, L), "Reading scan 0%")
+end)

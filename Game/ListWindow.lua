@@ -318,7 +318,10 @@ local function build()
   emptyText:SetPoint("CENTER")
   emptyText:SetText(L.NOTHING_TO_SHOW)
 
-  frame:SetScript("OnShow", ListWindow.Refresh)
+  frame:SetScript("OnShow", function()
+    if ns.Scanner then ListWindow.ShowScanProgress(ns.Display.ScanProgress(ns.Scanner.Progress(), L)) end
+    ListWindow.Refresh()
+  end)
   frame:SetScript("OnHide", hideCast)
   frame:RegisterEvent("BAG_UPDATE_DELAYED")
   frame:RegisterEvent("PLAYER_REGEN_DISABLED") -- fires just before combat lockdown
@@ -332,6 +335,14 @@ function ListWindow.Refresh()
   if not (frame and frame:IsShown()) then return end
   local ok, err = pcall(draw)
   if not ok then ns.Say("the list could not be drawn: " .. tostring(err)) end
+end
+
+-- The scan button shows what a running scan is doing (text from
+-- Display.ScanProgress), and its own label again when idle.
+function ListWindow.ShowScanProgress(text)
+  if not (frame and frame.scanButton) then return end
+  frame.scanButton:SetText(text or L.SCAN_BUTTON)
+  frame.scanButton:SetEnabled(text == nil)
 end
 
 function ListWindow.Toggle()

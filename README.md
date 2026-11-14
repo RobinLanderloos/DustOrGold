@@ -2,6 +2,8 @@
 
 A WoW Forever addon that tells you whether an item is worth more sold to a vendor or disenchanted.
 
+Made mainly for me and my friends. It's shared in case it's useful to others too, but expect it to follow our needs first. Questions and bugs: [GitHub issues](https://github.com/RobinLanderloos/DustOrGold/issues).
+
 - **Tooltip:** a verdict (vendor, disenchant or close call) with the vendor price and the expected disenchant value after the auction cut. Hold Shift for the materials and their odds. When Auctionator knows the item's own price, a line shows what listing it would fetch.
 - **List window** (`/dog` or the minimap button): your bag items grouped into vendor, disenchant, auction, close calls and no price data, with totals and a one-click Disenchant button for enchanters.
 - **Results log:** every disenchant is recorded; `/dog results` compares what you got with the table.

@@ -15,11 +15,17 @@ ns.Scanner = Scanner
 local SEARCH_TIMEOUT = 5          -- seconds to wait for one material's results
 local FULL_SCAN_COOLDOWN = 15 * 60 -- the server allows one full scan per 15 minutes
 local FULL_SCAN_TIMEOUT = 60
-local BATCH = 500                  -- full scan rows read per frame
+local FRAME_BUDGET_MS = 8          -- time spent reading a full scan per frame
+local ROWS_WITHOUT_CLOCK = 200     -- rows per frame when there is no clock to check
+local REREAD_GUARD = 60            -- seconds after a read in which the scan is not read again
 
 local isOpen = false
 local queue, current, token, found = nil, nil, 0, 0
+local materialsTotal, materialsDone = 0, 0
 local fullScanRequested = false
+local reading = nil                -- { done, total } while a full scan is read
+local lastRead = -math.huge
+local lastSaidQuarter = 0
 
 local function now() return time and time() or 0 end
 
@@ -31,6 +37,21 @@ end
 
 local function refresh()
   if ns.ListWindow then ns.ListWindow.Refresh() end
+end
+
+function Scanner.Progress()
+  return {
+    materials = queue and { done = materialsDone, total = materialsTotal } or nil,
+    waiting = fullScanRequested or nil,
+    reading = reading,
+  }
+end
+
+-- Only the scan button changes; the list is not redrawn for every step.
+local function progressChanged()
+  if ns.ListWindow and ns.ListWindow.ShowScanProgress then
+    ns.ListWindow.ShowScanProgress(ns.Display.ScanProgress(Scanner.Progress(), L))
+  end
 end
 
 local function sorts()
@@ -53,12 +74,19 @@ end
 local function finishSearches()
   queue, current = nil, nil
   ns.Say(L.SAY_MATERIALS_SCANNED:format(found))
+  progressChanged()
   refresh()
+end
+
+local function materialDone()
+  current = nil
+  materialsDone = materialsDone + 1
+  progressChanged()
 end
 
 function searchNext()
   if not queue then return end
-  if not isOpen then queue, current = nil, nil; return end
+  if not isOpen then queue, current = nil, nil; progressChanged(); return end
   if #queue == 0 then return finishSearches() end
   if C_AuctionHouse.IsThrottledMessageSystemReady and not C_AuctionHouse.IsThrottledMessageSystemReady() then
     C_Timer.After(0.3, searchNext)
@@ -70,7 +98,7 @@ function searchNext()
   local myToken, itemID = token, current
   C_Timer.After(SEARCH_TIMEOUT, function()
     if token == myToken and current == itemID then -- no answer: move on
-      current = nil
+      materialDone()
       searchNext()
     end
   end)
@@ -83,6 +111,8 @@ function Scanner.ScanMaterials()
   queue, found = {}, 0
   for itemID in pairs(ns.MaterialNames) do queue[#queue + 1] = itemID end
   table.sort(queue)
+  materialsTotal, materialsDone = #queue, 0
+  progressChanged()
   searchNext()
   return true
 end
@@ -95,7 +125,7 @@ local function onCommodityResults(itemID)
     if info then listings[#listings + 1] = { unitPrice = info.unitPrice, quantity = info.quantity } end
   end
   store(itemID, listings)
-  current = nil
+  materialDone()
   C_Timer.After(0, searchNext)
 end
 
@@ -110,42 +140,80 @@ local function onItemResults(itemKey)
     end
   end
   store(current, listings)
-  current = nil
+  materialDone()
   C_Timer.After(0, searchNext)
 end
 
 -- Full scans ----------------------------------------------------------------
 
+-- A full scan can hold tens of thousands of listings. They are read for a
+-- few milliseconds per frame so the game keeps running, and each row is
+-- folded into the result straight away so nothing big is left for the end.
 local function readFullScan()
   local total = C_AuctionHouse.GetNumReplicateItems()
   local materials = materialSet()
-  local rows = {}
+  local scan = PriceBook.NewScan(materials)
+  local keyOfLink = {} -- the same item is often listed many times
+  local clock = debugprofilestop
   local index = 0
+  reading, lastSaidQuarter = { done = 0, total = total }, 0
+  progressChanged()
 
-  local function step()
-    local last = math.min(index + BATCH, total) - 1
-    for i = index, last do
-      local info = { C_AuctionHouse.GetReplicateItemInfo(i) }
-      local count, buyout, itemID, hasAllInfo = info[3], info[10], info[17], info[18]
-      local key
-      if hasAllInfo then key = PriceBook.Key(C_AuctionHouse.GetReplicateItemLink(i)) end
-      -- Without item data only materials can be keyed safely (they have no suffixes).
-      if not key and itemID and materials[itemID] then key = PriceBook.Key(itemID) end
-      if key then rows[#rows + 1] = { key = key, itemID = itemID, count = count, buyout = buyout } end
+  local function readRow(i)
+    local _, _, count, _, _, _, _, _, _, buyout, _, _, _, _, _, _, itemID, hasAllInfo =
+      C_AuctionHouse.GetReplicateItemInfo(i)
+    local key
+    if hasAllInfo then
+      local link = C_AuctionHouse.GetReplicateItemLink(i)
+      if link then
+        key = keyOfLink[link]
+        if key == nil then
+          key = PriceBook.Key(link) or false
+          keyOfLink[link] = key
+        end
+      end
     end
-    index = last + 1
-    if index < total then
-      C_Timer.After(0, step)
-      return
-    end
-    local prices = PriceBook.FromScan(rows, materials)
+    -- Without item data only materials can be keyed safely (they have no suffixes).
+    if not key and itemID and materials[itemID] then key = PriceBook.Key(itemID) end
+    if key then scan:Add({ key = key, itemID = itemID, count = count, buyout = buyout }) end
+  end
+
+  local function finish()
+    local prices = scan:Prices()
     local count = 0
     for _ in pairs(prices) do count = count + 1 end
     PriceBook.Store(ns.settings.prices, prices, now())
+    reading, lastRead = nil, now()
     ns.Say(L.SAY_FULL_SCAN_READ:format(count))
+    progressChanged()
     refresh()
   end
-  step()
+
+  local function step()
+    if clock then
+      local stopAt = clock() + FRAME_BUDGET_MS
+      while index < total and clock() < stopAt do
+        readRow(index)
+        index = index + 1
+      end
+    else
+      local last = math.min(index + ROWS_WITHOUT_CLOCK, total)
+      while index < last do readRow(index); index = index + 1 end
+    end
+    reading.done = index
+    progressChanged()
+    local quarter = total > 0 and math.floor(4 * index / total) or 4
+    if quarter > lastSaidQuarter and quarter < 4 then
+      lastSaidQuarter = quarter
+      ns.Say(L.SAY_FULL_SCAN_PROGRESS:format(quarter * 25))
+    end
+    if index < total then
+      C_Timer.After(0, step)
+    else
+      finish()
+    end
+  end
+  C_Timer.After(0, step)
 end
 
 function Scanner.RequestFullScan()
@@ -157,10 +225,12 @@ function Scanner.RequestFullScan()
   end
   fullScanRequested = true
   C_AuctionHouse.ReplicateItems()
+  progressChanged()
   C_Timer.After(FULL_SCAN_TIMEOUT, function()
     if fullScanRequested then
       fullScanRequested = false
       ns.Say(L.SAY_FULL_SCAN_NO_ANSWER)
+      progressChanged()
     end
   end)
   ns.Say(L.SAY_FULL_SCAN_STARTED)
@@ -191,12 +261,16 @@ end
 function handlers.AUCTION_HOUSE_CLOSED()
   isOpen = false
   queue, current = nil, nil
+  progressChanged()
 end
 
 handlers.COMMODITY_SEARCH_RESULTS_UPDATED = onCommodityResults
 handlers.ITEM_SEARCH_RESULTS_UPDATED = onItemResults
 
+-- The event can come more than once for one scan (also when Auctionator
+-- asked for it); reading the same scan twice would only cost time.
 function handlers.REPLICATE_ITEM_LIST_UPDATE()
+  if reading or now() - lastRead < REREAD_GUARD then return end
   fullScanRequested = false
   ns.settings.lastFullScan = now()
   readFullScan()

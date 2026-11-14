@@ -77,25 +77,42 @@ end
 -- isMaterial: { [itemID] = true } for items priced by the batch
 -- Returns { [key] = price }.
 function PriceBook.FromScan(rows, isMaterial)
-  local listingsByKey, itemByKey = {}, {}
-  for _, row in ipairs(rows) do
-    if row.key and row.count and row.count > 0 and row.buyout and row.buyout > 0 then
-      local listings = listingsByKey[row.key]
-      if not listings then
-        listings = {}
-        listingsByKey[row.key] = listings
-        itemByKey[row.key] = row.itemID
-      end
-      listings[#listings + 1] = { unitPrice = row.buyout / row.count, quantity = row.count }
+  local scan = PriceBook.NewScan(isMaterial)
+  for _, row in ipairs(rows) do scan:Add(row) end
+  return scan:Prices()
+end
+
+-- A full scan read row by row, so a big auction house can be spread over
+-- many frames. Gear keeps only its cheapest listing as it goes; materials
+-- keep their listings for the batch price.
+-- scan:Add(row) takes one row as FromScan does; scan:Prices() gives the result.
+function PriceBook.NewScan(isMaterial)
+  local cheapest, materialListings = {}, {}
+  local scan = {}
+
+  function scan:Add(row)
+    if not (row.key and row.count and row.count > 0 and row.buyout and row.buyout > 0) then return end
+    local unitPrice = row.buyout / row.count
+    if isMaterial[row.itemID] then
+      local listings = materialListings[row.key]
+      if not listings then listings = {}; materialListings[row.key] = listings end
+      listings[#listings + 1] = { unitPrice = unitPrice, quantity = row.count }
+    else
+      local best = cheapest[row.key]
+      if not best or unitPrice < best then cheapest[row.key] = unitPrice end
     end
   end
 
-  local prices = {}
-  for key, listings in pairs(listingsByKey) do
-    local size = isMaterial[itemByKey[key]] and PriceBook.MATERIAL_BATCH or 1
-    prices[key] = PriceBook.BatchPrice(listings, size)
+  function scan:Prices()
+    local prices = {}
+    for key, price in pairs(cheapest) do prices[key] = math.floor(price) end
+    for key, listings in pairs(materialListings) do
+      prices[key] = PriceBook.BatchPrice(listings, PriceBook.MATERIAL_BATCH)
+    end
+    return prices
   end
-  return prices
+
+  return scan
 end
 
 -- Keeps prices seen at `now` (seconds). Items not in `prices` keep theirs.

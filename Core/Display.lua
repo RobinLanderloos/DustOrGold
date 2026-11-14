@@ -108,3 +108,17 @@ function Display.MaterialRows(L, nameOf, priceOf, money)
   end
   return rows
 end
+
+-- What a running scan is doing, for the scan button; nil when idle.
+-- progress: { materials = {done, total}, waiting = bool, reading = {done, total} }
+local function share(part)
+  if not part.total or part.total <= 0 then return 0 end
+  return math.floor(100 * part.done / part.total)
+end
+
+function Display.ScanProgress(progress, L)
+  if progress.reading then return L.SCAN_READING:format(share(progress.reading)) end
+  if progress.waiting then return L.SCAN_WAITING end
+  if progress.materials then return L.SCAN_MATERIALS:format(share(progress.materials)) end
+  return nil
+end

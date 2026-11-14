@@ -483,9 +483,25 @@ replicate = {
   { link = nil, itemID = 10940, count = 20, buyout = 1600, hasAllInfo = false },
   { link = nil, itemID = 4000, count = 1, buyout = 100, hasAllInfo = false }, -- gear without data: skipped
 }
+-- Enough plain listings that reading takes several frames.
+for i = 1, 1000 do
+  replicate[#replicate + 1] = { link = nil, itemID = 5000 + i, count = 1, buyout = 100, hasAllInfo = false }
+end
+local scanButton = find(function(w) return w.scripts.OnClick and (rawget(w, "text") == "Scan auction house") end)
+check("the window has a scan button", scanButton ~= nil)
 said = {}
 fire("REPLICATE_ITEM_LIST_UPDATE")
+check("the scan is read on later frames, not inside the event", #timers > 0 and not table.concat(said, "\n"):find("full scan read", 1, true))
+table.remove(timers, 1)()
+local midText = scanButton and rawget(scanButton, "text") or ""
+check("the scan button shows the reading percentage", midText:match("^Reading scan %d+%%$") ~= nil, midText)
+check("one frame reads only part of the scan", midText ~= "Reading scan 100%", midText)
+fire("REPLICATE_ITEM_LIST_UPDATE") -- the same scan announced again
 runTimers()
+local saidText = table.concat(said, "\n")
+check("chat shows the reading progress in quarters", saidText:find("reading the full scan: 50%", 1, true) ~= nil, saidText)
+check("a scan announced twice is read once", select(2, saidText:gsub("full scan read:", "")) == 1, saidText)
+check("the scan button is back to its label when done", scanButton and rawget(scanButton, "text") == "Scan auction house")
 check("a full scan records gear by exact item", DustOrGoldDB.prices["i:727:b12759"] and DustOrGoldDB.prices["i:727:b12759"].p == 7000)
 check("a full scan records materials even without item data", DustOrGoldDB.prices["i:10940"] and DustOrGoldDB.prices["i:10940"].p == 80)
 check("a full scan skips gear it cannot key", DustOrGoldDB.prices["i:4000"] == nil)
