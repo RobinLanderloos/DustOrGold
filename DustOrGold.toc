@@ -2,6 +2,9 @@
 ## Title: DustOrGold
 ## Notes: Shows whether an item is worth more sold to a vendor or disenchanted.
 ## Version: 0.1.0-beta
+## Author: Robin Landerloos
+## X-License: MIT
+## X-Website: https://github.com/RobinLanderloos/DustOrGold
 ## OptionalDeps: Auctionator
 ## SavedVariables: DustOrGoldDB
 
