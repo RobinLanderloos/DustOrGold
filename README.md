@@ -17,4 +17,6 @@ luajit tests/run.lua         # unit tests
 luajit tests/smoke_test.lua  # loads every file in the .toc against a stand-in for the game
 ```
 
+Releases: set `## Version:` in `DustOrGold.toc`, run `pwsh scripts/package.ps1`, and attach `dist/DustOrGold-<version>.zip` and `dist/release.json` to a GitHub release tagged `v<version>` (mark it a pre-release for betas). WowUp Hub picks releases up from there.
+
 Design decisions are in `docs/adr/`, the product requirements in `docs/prd/`, and the work items in `docs/issues/`.
