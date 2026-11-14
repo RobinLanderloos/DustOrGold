@@ -1,0 +1,161 @@
+{
+  "userStories": [
+    {
+      "id": "001",
+      "title": "Verdict calculation core",
+      "description": "Pure calculation from plain item facts to a verdict: disenchant table, material pricing, Disenchant Value net of the auction cut, three verdicts with a margin, no-price outcome, who-can-act rule.",
+      "status": "completed",
+      "markdownFile": "docs/issues/001-verdict-calculation-core.md",
+      "acceptanceCriteria": [
+        "Every band's chances add up to 1, bands do not overlap, every drop is a known material",
+        "Disenchant Value is the probability-weighted average of the drops at the given prices, minus 5%",
+        "A lesser essence is valued at the lower of its own price and a third of the greater essence",
+        "Verdict is disenchant, vendor or close call according to the margin; the margin is adjustable",
+        "A missing price for a drop of at least 1% gives no price; a rarer drop is ignored",
+        "Items that cannot be disenchanted, and kept items, get no verdict",
+        "Non-enchanters get a verdict only for unbound items while the enchanter-alt setting is on",
+        "Tests run outside the game and pass"
+      ],
+      "blockedBy": []
+    },
+    {
+      "id": "002",
+      "title": "Verdict line on item tooltips",
+      "description": "The addon loads on WoW Forever and adds one coloured verdict line with Vendor Value and Disenchant Value to the tooltip of any disenchantable item.",
+      "status": "completed",
+      "markdownFile": "docs/issues/002-verdict-line-on-item-tooltips.md",
+      "acceptanceCriteria": [
+        "The addon appears in the Forever addon list and loads without Lua errors",
+        "Hovering an uncommon, rare or epic weapon or armor piece shows a verdict line with both values",
+        "The line is green for disenchant, a neutral colour for vendor, yellow for close call",
+        "Items that cannot be disenchanted show no line",
+        "With a material price missing, the line reads no price data",
+        "Without Auctionator loaded, the addon still loads and shows no errors",
+        "A soulbound item on a non-enchanter shows no line",
+        "The translation from game values to plain item facts is tested outside the game where it is pure"
+      ],
+      "blockedBy": ["001"]
+    },
+    {
+      "id": "003",
+      "title": "Material breakdown and price age",
+      "description": "Holding Shift lists the materials with odds and quantity ranges in the game's language; the scan price age is shown; the breakdown works without Auctionator.",
+      "status": "in-progress",
+      "markdownFile": "docs/issues/003-material-breakdown-and-price-age.md",
+      "acceptanceCriteria": [
+        "Holding Shift adds one line per drop: chance, quantity range, material name",
+        "Material names follow the game's language, with an English fallback until the name is cached",
+        "The oldest price age among the drops is shown when it is more than a day",
+        "Without Auctionator the materials are listed and no verdict is claimed",
+        "The text of the breakdown lines is produced by a pure function with tests"
+      ],
+      "blockedBy": ["002"]
+    },
+    {
+      "id": "004",
+      "title": "Settings: margin and enchanter alt",
+      "description": "Account-wide saved settings for the close-call margin and the enchanter-alt switch, changeable by slash command and in the game's settings panel.",
+      "status": "completed",
+      "markdownFile": "docs/issues/004-settings-margin-and-enchanter-alt.md",
+      "acceptanceCriteria": [
+        "Settings are created with defaults on first load and survive a reload and a relog",
+        "A slash command shows the current settings and changes the margin and the switch",
+        "The settings panel has a DustOrGold category with a margin slider and the switch",
+        "Switching the enchanter-alt setting off removes verdicts on a non-enchanter",
+        "Applying defaults to stored settings is a pure function with tests"
+      ],
+      "blockedBy": ["002"]
+    },
+    {
+      "id": "005",
+      "title": "Keep list",
+      "description": "Items the player marks get no verdict anywhere; added and removed by slash command with an item link, saved account-wide.",
+      "status": "in-progress",
+      "markdownFile": "docs/issues/005-keep-list.md",
+      "acceptanceCriteria": [
+        "An item can be added to and removed from the keep list with a slash command and an item link",
+        "A kept item shows no verdict line on its tooltip",
+        "The keep list survives a reload and a relog",
+        "A command lists the kept items",
+        "The keep list (add, remove, contains, parsing an item ID from a link) is pure and tested"
+      ],
+      "blockedBy": ["004"]
+    },
+    {
+      "id": "006",
+      "title": "Bag list window",
+      "description": "A window listing every bag item with a verdict, grouped into vendor, disenchant, close call and no price data, with totals. Advice only, no sell button.",
+      "status": "in-progress",
+      "markdownFile": "docs/issues/006-bag-list-window.md",
+      "acceptanceCriteria": [
+        "The slash command toggles the window",
+        "Each row shows the item, its Vendor Value and its Disenchant Value",
+        "Groups appear in a fixed order with a total",
+        "Items with no price data are listed in their own group",
+        "Kept items and items without a verdict do not appear",
+        "The window updates after selling or disenchanting an item",
+        "Grouping, totals and sorting come from a pure Bag Report module with tests"
+      ],
+      "blockedBy": ["002"]
+    },
+    {
+      "id": "007",
+      "title": "Disenchant button in list",
+      "description": "For enchanters, each disenchant and close-call row has a secure button that casts Disenchant on that bag item, out of combat only.",
+      "status": "in-progress",
+      "markdownFile": "docs/issues/007-disenchant-button-in-list.md",
+      "acceptanceCriteria": [
+        "Clicking a row's button disenchants that exact bag item",
+        "Buttons are absent on a character that cannot disenchant",
+        "Entering combat hides or disables the buttons without Lua errors or taint warnings",
+        "After a disenchant the row disappears and the buttons point at the right slots"
+      ],
+      "blockedBy": ["006", "010"]
+    },
+    {
+      "id": "008",
+      "title": "Results log capture",
+      "description": "Every disenchant the player performs is recorded account-wide with the item's facts and the materials received.",
+      "status": "in-progress",
+      "markdownFile": "docs/issues/008-results-log-capture.md",
+      "acceptanceCriteria": [
+        "Disenchanting an item adds exactly one record with the item's facts and the materials received",
+        "Loot from anything other than a disenchant adds no record",
+        "Records survive a reload, a relog and an addon update",
+        "Building a record from item facts and received materials is a pure function with tests"
+      ],
+      "blockedBy": ["002", "010"]
+    },
+    {
+      "id": "009",
+      "title": "Compare results with table",
+      "description": "A slash command compares recorded disenchant results with the table per band and calls out results the table says are impossible.",
+      "status": "in-progress",
+      "markdownFile": "docs/issues/009-compare-results-with-table.md",
+      "acceptanceCriteria": [
+        "The command prints one summary per band that has records",
+        "A received material the table does not list for that band is called out",
+        "Records whose item level and required level fall in different bands are reported with which one matched the result",
+        "The comparison is a pure function over a list of records, with tests"
+      ],
+      "blockedBy": ["008"]
+    },
+    {
+      "id": "010",
+      "title": "Verify client assumptions in game",
+      "description": "HITL: an in-game session confirming Disenchant detection, bound detection, item level, Auctionator prices and the events that fire on a disenchant, using a debug slash command.",
+      "status": "in-progress",
+      "markdownFile": "docs/issues/010-verify-client-assumptions-in-game.md",
+      "acceptanceCriteria": [
+        "On an enchanter, the addon detects that the character can disenchant; the working signal is recorded",
+        "On a non-enchanter, it detects that the character cannot",
+        "Soulbound and bind-on-pickup items are seen as bound; a bind-on-equip item is not",
+        "An item marked as not disenchantable is detected from its tooltip line",
+        "The item level the addon reads matches the auction house",
+        "Auctionator returns a price for a scanned dust",
+        "The events that fire on a disenchant are noted"
+      ],
+      "blockedBy": ["002"]
+    }
+  ]
+}

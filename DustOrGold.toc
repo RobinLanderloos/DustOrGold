@@ -1,0 +1,23 @@
+## Interface: 16001
+## Title: DustOrGold
+## Notes: Shows whether an item is worth more sold to a vendor or disenchanted.
+## Version: 0.1.0
+## OptionalDeps: Auctionator
+## SavedVariables: DustOrGoldDB
+
+Locales\enUS.lua
+Core\Table.lua
+Core\Valuation.lua
+Core\Facts.lua
+Core\Display.lua
+Core\Settings.lua
+Core\KeepList.lua
+Core\BagReport.lua
+Core\Results.lua
+Game\Adapter.lua
+Game\Tooltip.lua
+Game\Slash.lua
+Game\Options.lua
+Game\ListWindow.lua
+Game\ResultsCapture.lua
+Game\MinimapButton.lua
