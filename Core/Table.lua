@@ -61,6 +61,17 @@ ns.MaterialNames = {
   [M.NEXUS_CRYSTAL] = "Nexus Crystal",
 }
 
+-- Display order: dusts, then essences (lesser before greater), shards, crystal.
+ns.MaterialOrder = {
+  M.STRANGE_DUST, M.SOUL_DUST, M.VISION_DUST, M.DREAM_DUST, M.ILLUSION_DUST,
+  M.LESSER_MAGIC, M.GREATER_MAGIC, M.LESSER_ASTRAL, M.GREATER_ASTRAL,
+  M.LESSER_MYSTIC, M.GREATER_MYSTIC, M.LESSER_NETHER, M.GREATER_NETHER,
+  M.LESSER_ETERNAL, M.GREATER_ETERNAL,
+  M.SMALL_GLIMMERING, M.LARGE_GLIMMERING, M.SMALL_GLOWING, M.LARGE_GLOWING,
+  M.SMALL_RADIANT, M.LARGE_RADIANT, M.SMALL_BRILLIANT, M.LARGE_BRILLIANT,
+  M.NEXUS_CRYSTAL,
+}
+
 -- Three lesser essences combine into one greater (docs/adr/0003).
 ns.GreaterEssenceOf = {
   [M.LESSER_MAGIC]   = M.GREATER_MAGIC,

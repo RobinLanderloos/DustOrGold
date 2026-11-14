@@ -24,8 +24,12 @@ local function onItemTooltip(tooltip, data)
     tooltip:AddLine(auctionText, auctionColor[1], auctionColor[2], auctionColor[3])
   end
 
-  if IsShiftKeyDown() then
-    for _, line in ipairs(Display.BreakdownLines(result.band, L, Game.MaterialName)) do
+  -- The materials and their prices: with Shift held, and always when the
+  -- item is hovered in the list window, where the decision is made.
+  local owner = tooltip.GetOwner and tooltip:GetOwner()
+  local fromList = type(owner) == "table" and owner.isDustOrGoldRow
+  if IsShiftKeyDown() or fromList then
+    for _, line in ipairs(Display.BreakdownLines(result.band, L, Game.MaterialName, Game.PriceWithAge, Game.Money)) do
       tooltip:AddLine(line, 0.8, 0.8, 0.8)
     end
   end

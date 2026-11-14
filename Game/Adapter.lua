@@ -78,21 +78,53 @@ local function auctionator()
   return api and api.GetAuctionPriceByItemID and api or nil
 end
 
-function Game.HasPriceSource()
+function Game.HasAuctionator()
   return auctionator() ~= nil
+end
+
+function Game.HasPriceSource()
+  return next(ns.settings.prices) ~= nil or Game.HasAuctionator()
+end
+
+local function now()
+  return time and time() or 0
+end
+
+local function number(value)
+  return type(value) == "number" and value > 0 and value or nil
+end
+
+-- Auctionator's price for an item ID, and its age in days.
+local function auctionatorByID(itemID)
+  local api = auctionator()
+  if not api then return nil end
+  local ok, price = pcall(api.GetAuctionPriceByItemID, addonName, itemID)
+  price = ok and number(price) or nil
+  if not price then return nil end
+  local age
+  if api.GetAuctionAgeByItemID then
+    local okAge, days = pcall(api.GetAuctionAgeByItemID, addonName, itemID)
+    age = okAge and type(days) == "number" and days or nil
+  end
+  return price, age
+end
+
+-- Copper for one of an item, its age in days and where it came from:
+-- our own scans first, Auctionator's only without one (docs/adr/0007).
+function Game.PriceWithAge(itemID)
+  return ns.PriceBook.Choose(
+    function() return ns.PriceBook.Lookup(ns.settings.prices, ns.PriceBook.Key(itemID), now()) end,
+    function() return auctionatorByID(itemID) end)
 end
 
 -- Copper for one of an item, or nil.
 function Game.GetPrice(itemID)
-  local api = auctionator()
-  if not api then return nil end
-  local ok, price = pcall(api.GetAuctionPriceByItemID, addonName, itemID)
-  return ok and price or nil
+  return (Game.PriceWithAge(itemID))
 end
 
--- The item's own auction price and its age in days, or nil. By link first,
--- so items with random suffixes ("of the Eagle") get their own price.
-function Game.ItemAuctionPrice(item)
+-- Auctionator's price for the item itself, by link first so items with
+-- random suffixes ("of the Eagle") get their own price.
+local function auctionatorItemPrice(item)
   local api = auctionator()
   if not api then return nil end
   local price, age
@@ -104,28 +136,28 @@ function Game.ItemAuctionPrice(item)
       age = okAge and days or nil
     end
   end
-  if not price then
+  if not number(price) then
     local itemID = type(item) == "number" and item or C_Item.GetItemInfoInstant(item)
-    if itemID then
-      price = Game.GetPrice(itemID)
-      if price and api.GetAuctionAgeByItemID then
-        local okAge, days = pcall(api.GetAuctionAgeByItemID, addonName, itemID)
-        age = okAge and days or nil
-      end
-    end
+    if itemID then price, age = auctionatorByID(itemID) end
   end
-  if type(price) ~= "number" or price <= 0 then return nil end
+  if not number(price) then return nil end
   return price, type(age) == "number" and age or nil
+end
+
+-- The item's own auction price and its age in days, or nil: our own scans
+-- first (by exact item, suffix included), Auctionator's otherwise.
+function Game.ItemAuctionPrice(item)
+  return ns.PriceBook.Choose(
+    function() return ns.PriceBook.Lookup(ns.settings.prices, ns.PriceBook.Key(item), now()) end,
+    function() return auctionatorItemPrice(item) end)
 end
 
 -- Days since the oldest price among a band's drops was seen, or nil.
 function Game.OldestPriceAge(band)
-  local api = auctionator()
-  if not (api and api.GetAuctionAgeByItemID) then return nil end
   local oldest
   for _, d in ipairs(band.drops) do
-    local ok, age = pcall(api.GetAuctionAgeByItemID, addonName, d.item)
-    if ok and type(age) == "number" and (not oldest or age > oldest) then oldest = age end
+    local _, age = Game.PriceWithAge(d.item)
+    if type(age) == "number" and (not oldest or age > oldest) then oldest = age end
   end
   return oldest
 end

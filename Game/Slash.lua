@@ -34,10 +34,15 @@ local function debug(link)
   local signals = Game.DisenchantSignals()
   say(("can disenchant: %s (spellbook %s, player spell %s, profession %s)"):format(
     yesNo(Game.CanDisenchant()), yesNo(signals.spellbook), yesNo(signals.playerSpell), yesNo(signals.profession)))
-  say("Auctionator prices: " .. yesNo(Game.HasPriceSource()))
+  local own = 0
+  for _ in pairs(ns.settings.prices) do own = own + 1 end
+  say(("own prices: %d items, last full scan: %s; Auctionator: %s"):format(own,
+    ns.settings.lastFullScan and date and date("%Y-%m-%d %H:%M", ns.settings.lastFullScan) or "never",
+    yesNo(Game.HasAuctionator())))
   local dust = ns.Materials.STRANGE_DUST
-  local price = Game.GetPrice(dust)
-  say(("%s price: %s"):format(Game.MaterialName(dust), price and (price .. " copper") or "none"))
+  local price, age, source = Game.PriceWithAge(dust)
+  say(("%s price: %s"):format(Game.MaterialName(dust),
+    price and ("%d copper (%s, %s days old)"):format(price, source, tostring(age)) or "none"))
 
   if not link then
     say("add an item link to inspect an item: /dog debug [shift-click an item]")
@@ -92,6 +97,16 @@ commands.alt = function(rest)
   if rest == "on" then ns.settings.hasEnchanterAlt = true end
   if rest == "off" then ns.settings.hasEnchanterAlt = false end
   say(ns.settings.hasEnchanterAlt and L.SAY_ALT_ON or L.SAY_ALT_OFF)
+end
+
+commands.scan = function()
+  ns.Scanner.Scan()
+end
+
+commands.autoscan = function(rest)
+  if rest == "on" then ns.settings.autoScan = true end
+  if rest == "off" then ns.settings.autoScan = false end
+  say(ns.settings.autoScan and L.SAY_AUTOSCAN_ON or L.SAY_AUTOSCAN_OFF)
 end
 
 commands.button = function(rest)

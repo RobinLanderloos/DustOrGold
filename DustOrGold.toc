@@ -14,6 +14,7 @@ Core\Settings.lua
 Core\KeepList.lua
 Core\BagReport.lua
 Core\Results.lua
+Core\PriceBook.lua
 Game\Adapter.lua
 Game\Tooltip.lua
 Game\Slash.lua
@@ -21,3 +22,4 @@ Game\Options.lua
 Game\ListWindow.lua
 Game\ResultsCapture.lua
 Game\MinimapButton.lua
+Game\Scanner.lua

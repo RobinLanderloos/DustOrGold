@@ -73,6 +73,36 @@ test("breakdown lists each drop with chance, name and quantity", function()
   eq(lines[3], "  5% Large Glimmering Shard x1")
 end)
 
+test("a price note says what one costs, where the price came from and how old it is", function()
+  eq(Display.PriceNote(520, 0, "own", L, money), "520c each, own scan, today")
+  eq(Display.PriceNote(900, 1, "own", L, money), "900c each, own scan, 1 day old")
+  eq(Display.PriceNote(900, 3, "auctionator", L, money), "900c each, Auctionator, 3 days old")
+  eq(Display.PriceNote(900, nil, "auctionator", L, money), "900c each, Auctionator")
+  eq(Display.PriceNote(nil, nil, nil, L, money), "no price")
+end)
+
+test("with prices, each breakdown line carries its material's price", function()
+  local prices = { [M.SOUL_DUST] = { 520, 0, "own" }, [M.GREATER_ASTRAL] = { 2350, 2, "own" } }
+  local lines = Display.BreakdownLines(band, L, function(id) return ns.MaterialNames[id] end,
+    function(id) local p = prices[id]; if p then return p[1], p[2], p[3] end end, money)
+  eq(lines[1], "  75% Soul Dust x1-2  (520c each, own scan, today)")
+  eq(lines[2], "  20% Greater Astral Essence x1-2  (2350c each, own scan, 2 days old)")
+  eq(lines[3], "  5% Large Glimmering Shard x1  (no price)")
+end)
+
+test("the materials view lists every material, dusts first", function()
+  local rows = Display.MaterialRows(L, function(id) return ns.MaterialNames[id] end,
+    function(id) if id == M.STRANGE_DUST then return 80, 0, "own" end end, money)
+  eq(#rows, 24)
+  eq(rows[1].item, M.STRANGE_DUST)
+  eq(rows[1].name, "Strange Dust")
+  eq(rows[1].note, "80c each, own scan, today")
+  eq(rows[1].hasPrice, true)
+  eq(rows[2].note, "no price")
+  eq(rows[2].hasPrice, false)
+  eq(rows[24].item, M.NEXUS_CRYSTAL)
+end)
+
 test("breakdown keeps a fraction of a percent", function()
   local lines = Display.BreakdownLines(V.FindBand("armor", 3, 58), L, function(id) return ns.MaterialNames[id] end)
   eq(lines[1], "  99.5% Large Brilliant Shard x1")

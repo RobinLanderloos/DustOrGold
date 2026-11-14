@@ -156,6 +156,22 @@
         "The events that fire on a disenchant are noted"
       ],
       "blockedBy": ["002"]
+    },
+    {
+      "id": "011",
+      "title": "Own auction prices",
+      "description": "Collect our own auction prices (material searches on auction house open, every full scan read, /dog scan) and use them before Auctionator's.",
+      "status": "in-progress",
+      "markdownFile": "docs/issues/011-own-auction-prices.md",
+      "acceptanceCriteria": [
+        "Opening the auction house updates material prices and says how many were found",
+        "Tooltips and the list use our own price when we have one, Auctionator's otherwise",
+        "A full scan started by Auctionator fills our prices too, gear included",
+        "/dog scan runs a full scan when 15 minutes have passed, and says how long to wait otherwise",
+        "Our material searches do not break Auctionator's or the auction house's own searches",
+        "The price logic (batch price, item keys, storage, own-first choice) is pure and tested"
+      ],
+      "blockedBy": ["002"]
     }
   ]
 }

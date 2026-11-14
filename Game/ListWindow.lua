@@ -13,6 +13,7 @@ local SCROLL_INSET = 44 -- frame width minus the scroll child's width
 local DISENCHANT = 13262
 local frame, content, emptyText
 local rows = {}
+local showMaterials = false -- the window shows bag items, or the materials and their prices
 
 -- One secure button casts Disenchant on the row under the mouse. It is only
 -- placed, set and shown out of combat, and hidden before combat starts.
@@ -28,6 +29,7 @@ end
 
 local function buildCast()
   castButton = CreateFrame("Button", "DustOrGoldCastButton", UIParent, "SecureActionButtonTemplate")
+  castButton.isDustOrGoldRow = true -- its tooltip shows the materials and prices
   castButton:RegisterForClicks("AnyUp", "AnyDown")
   castButton:SetAttribute("type", "spell")
   castButton:SetAttribute("spell", DISENCHANT)
@@ -103,6 +105,7 @@ local function getRow(index)
   local row = rows[index]
   if not row then
     row = CreateFrame("Button", nil, content)
+    row.isDustOrGoldRow = true -- its tooltip shows the materials and prices
     row:SetHeight(ROW_HEIGHT)
     row.right = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     row.right:SetPoint("RIGHT", -4, 0)
@@ -115,6 +118,12 @@ local function getRow(index)
     row.left:SetJustifyH("LEFT")
     row.left:SetWordWrap(false)
     row:SetScript("OnEnter", function(self)
+      if self.itemID then -- a material in the materials view
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetItemByID(self.itemID)
+        GameTooltip:Show()
+        return
+      end
       if not self.bag then return end
       if self.canCast and showCast(self) then return end -- the cast button shows the tooltip
       GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -135,8 +144,41 @@ local function place(row, y, height)
   row:Show()
 end
 
+-- The materials view: every material with its price, source and age.
+local function drawMaterials()
+  local list = Display.MaterialRows(L, Game.MaterialName, Game.PriceWithAge, Game.Money)
+  local known = 0
+  for _, m in ipairs(list) do if m.hasPrice then known = known + 1 end end
+
+  local header = getRow(1)
+  place(header, 0, ROW_HEIGHT + 2)
+  header.bag, header.slot, header.itemID, header.canCast = nil, nil, nil, false
+  header.left:SetFontObject("GameFontNormal")
+  header.left:SetText(L.MATERIALS_TITLE:format(known, #list))
+  header.left:SetTextColor(1, 0.82, 0)
+  header.right:SetText("")
+
+  local y = ROW_HEIGHT + 2
+  for i, m in ipairs(list) do
+    local row = getRow(i + 1)
+    place(row, y, ROW_HEIGHT)
+    row.bag, row.slot, row.itemID, row.canCast = nil, nil, m.item, false
+    row.left:SetFontObject("GameFontHighlightSmall")
+    row.left:SetText("  " .. m.name)
+    local shade = m.hasPrice and 1 or 0.6
+    row.left:SetTextColor(shade, shade, shade)
+    row.right:SetText(m.note)
+    y = y + ROW_HEIGHT
+  end
+
+  for i = #list + 2, #rows do rows[i]:Hide() end
+  content:SetHeight(y)
+  emptyText:Hide()
+end
+
 local function draw()
   hideCast() -- the slots may have changed under it
+  if showMaterials then return drawMaterials() end
   -- Debug mode also lists items without a verdict, so the Disenchant button
   -- can be tried on items the game will refuse to disenchant.
   local groups = ns.BagReport.Build(Game.BagEntries(), { includeOthers = ns.debug })
@@ -151,7 +193,7 @@ local function draw()
     local header = getRow(index)
     y = y + (index > 1 and HEADER_GAP or 0)
     place(header, y, ROW_HEIGHT + 2)
-    header.bag, header.slot, header.canCast = nil, nil, false
+    header.bag, header.slot, header.itemID, header.canCast = nil, nil, nil, false
     header.left:SetFontObject("GameFontNormal")
     header.left:SetText(headerText(group))
     header.left:SetTextColor(color[1], color[2], color[3])
@@ -162,7 +204,7 @@ local function draw()
       index = index + 1
       local row = getRow(index)
       place(row, y, ROW_HEIGHT)
-      row.bag, row.slot = entry.bag, entry.slot
+      row.bag, row.slot, row.itemID = entry.bag, entry.slot, nil
       row.canCast = ns.BagReport.CanCast(group.verdict, entry.facts,
         { canDisenchant = canDisenchant, buttonOnAll = ns.settings.buttonOnAll })
       row.left:SetFontObject("GameFontHighlightSmall")
@@ -225,7 +267,16 @@ local function build()
   grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
   grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
   grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
-  grip:SetScript("OnMouseDown", function() frame:StartSizing("BOTTOMRIGHT") end)
+  grip:SetScript("OnMouseDown", function()
+    -- Anchored by its centre, the window would grow on both sides at once,
+    -- twice as fast as the mouse. Pin the top-left corner where it is now.
+    local left, top = frame:GetLeft(), frame:GetTop()
+    if left and top then
+      frame:ClearAllPoints()
+      frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+    end
+    frame:StartSizing("BOTTOMRIGHT")
+  end)
   grip:SetScript("OnMouseUp", function()
     frame:StopMovingOrSizing()
     saveLayout()
@@ -235,7 +286,26 @@ local function build()
 
   local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
   scroll:SetPoint("TOPLEFT", 12, -32)
-  scroll:SetPoint("BOTTOMRIGHT", -32, 24)
+  scroll:SetPoint("BOTTOMRIGHT", -32, 38)
+
+  local scan = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+  scan:SetSize(150, 22)
+  scan:SetPoint("BOTTOMLEFT", 12, 10)
+  scan:SetText(L.SCAN_BUTTON)
+  scan:SetScript("OnClick", function() if ns.Scanner then ns.Scanner.Scan() end end)
+  frame.scanButton = scan
+
+  -- Switches between the bag items and the materials with their prices.
+  local view = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+  view:SetSize(110, 22)
+  view:SetPoint("LEFT", scan, "RIGHT", 6, 0)
+  view:SetText(L.MATERIALS_BUTTON)
+  view:SetScript("OnClick", function(self)
+    showMaterials = not showMaterials
+    self:SetText(showMaterials and L.BAGS_BUTTON or L.MATERIALS_BUTTON)
+    ListWindow.Refresh()
+  end)
+  frame.viewButton = view
   content = CreateFrame("Frame", nil, scroll)
   content:SetSize(frame:GetWidth() - SCROLL_INSET, 1)
   scroll:SetScrollChild(content)

@@ -2,7 +2,7 @@
 --   luajit tests/run.lua
 local ns = {}
 for _, file in ipairs({ "Locales/enUS.lua", "Core/Table.lua", "Core/Valuation.lua", "Core/Facts.lua", "Core/Display.lua",
-  "Core/Settings.lua", "Core/KeepList.lua", "Core/BagReport.lua", "Core/Results.lua" }) do
+  "Core/Settings.lua", "Core/KeepList.lua", "Core/BagReport.lua", "Core/Results.lua", "Core/PriceBook.lua" }) do
   local chunk = loadfile(file)
   if chunk then chunk("DustOrGold", ns) end
 end
@@ -62,6 +62,20 @@ test("every band's chances add up to 1", function()
       end
     end
   end
+end)
+
+test("the display order lists every material once", function()
+  local seen, count = {}, 0
+  for _, itemID in ipairs(ns.MaterialOrder) do
+    if seen[itemID] then error("listed twice: " .. itemID) end
+    if not ns.MaterialNames[itemID] then error("not a material: " .. itemID) end
+    seen[itemID] = true
+    count = count + 1
+  end
+  for itemID in pairs(ns.MaterialNames) do
+    if not seen[itemID] then error("missing from the order: " .. itemID) end
+  end
+  eq(count, 24)
 end)
 
 test("bands do not overlap and every drop is a known material", function()
@@ -298,7 +312,7 @@ end)
 -- Further test files get the namespace and the helpers.
 for _, file in ipairs({ "tests/facts_test.lua", "tests/display_test.lua",
   "tests/settings_test.lua", "tests/keeplist_test.lua", "tests/bagreport_test.lua",
-  "tests/results_test.lua" }) do
+  "tests/results_test.lua", "tests/pricebook_test.lua" }) do
   local chunk = loadfile(file)
   if chunk then chunk(ns, test, eq) end
 end

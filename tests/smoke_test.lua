@@ -71,7 +71,9 @@ local function newWidget(parent)
       end
     end
     if type(key) == "string" and key:match("^Create") then return function(s) return newWidget(s) end end
-    return function() end
+    -- Like a real frame: unknown methods do nothing, unset fields are nil.
+    if type(key) == "string" and key:match("^%u") then return function() end end
+    return nil
   end })
 end
 local function fire(event, ...)
@@ -101,6 +103,45 @@ _G.CreateFrame = function(_, name, parent)
   rawset(w, "name", name)
   return w
 end
+-- Timers wait until the test runs them, as the game would on later frames.
+local timers = {}
+_G.C_Timer = { After = function(_, fn) timers[#timers + 1] = fn end }
+local function runTimers()
+  local guard = 0
+  while #timers > 0 and guard < 100000 do
+    table.remove(timers, 1)()
+    guard = guard + 1
+  end
+end
+_G.date = function() return "2026-11-14 12:00" end
+
+-- The auction house: commodity listings per item, and a full scan.
+local ahListings = {}  -- [itemID] = { { unitPrice, quantity } }
+local searches = {}
+local replicate = {}   -- { { link, itemID, count, buyout, hasAllInfo } }
+local replicateRequests = 0
+_G.Enum.AuctionHouseSortOrder = { Price = 0 }
+_G.C_AuctionHouse = {
+  IsThrottledMessageSystemReady = function() return true end,
+  MakeItemKey = function(itemID) return { itemID = itemID } end,
+  SendSearchQuery = function(itemKey)
+    searches[#searches + 1] = itemKey.itemID
+    fire("COMMODITY_SEARCH_RESULTS_UPDATED", itemKey.itemID)
+  end,
+  GetNumCommoditySearchResults = function(itemID) return #(ahListings[itemID] or {}) end,
+  GetCommoditySearchResultInfo = function(itemID, i) return ahListings[itemID][i] end,
+  GetNumItemSearchResults = function() return 0 end,
+  ReplicateItems = function() replicateRequests = replicateRequests + 1 end,
+  GetNumReplicateItems = function() return #replicate end,
+  GetReplicateItemInfo = function(i)
+    local r = replicate[i + 1]
+    local t = {}
+    t[3], t[10], t[17], t[18] = r.count, r.buyout, r.itemID, r.hasAllInfo
+    return unpack(t, 1, 18)
+  end,
+  GetReplicateItemLink = function(i) return replicate[i + 1].link end,
+}
+
 _G.Minimap = newWidget()
 Minimap:SetSize(140, 140)
 rawset(Minimap, "GetCenter", function() return 500, 500 end)
@@ -181,11 +222,14 @@ fire("PLAYER_LOGIN")
 local storedMargin = DustOrGoldDB.margin
 DustOrGoldDB.margin = 0.20
 
-local function show(item, lines)
+local function show(item, lines, owner)
   local shown = {}
   local data = { id = 1, hyperlink = item, lines = {} }
   for _, text in ipairs(lines or {}) do data.lines[#data.lines + 1] = { leftText = text } end
-  postCall({ AddLine = function(_, text) shown[#shown + 1] = text end }, data)
+  postCall({
+    AddLine = function(_, text) shown[#shown + 1] = text end,
+    GetOwner = function() return owner end,
+  }, data)
   return shown
 end
 
@@ -309,7 +353,13 @@ check("the window opens at the larger default size", window and window:GetWidth(
 local grip = find(function(w) return w.scripts.OnMouseDown and rawget(w, "parentWidget") == window end)
 check("the window has a resize grip", grip ~= nil)
 if window and grip then
+  rawset(window, "GetLeft", function() return 300 end)
+  rawset(window, "GetTop", function() return 800 end)
   grip.scripts.OnMouseDown(grip)
+  local p = rawget(window, "point")
+  check("grabbing the grip pins the window's top-left corner where it is",
+    p and p[1] == "TOPLEFT" and p[3] == "BOTTOMLEFT" and p[4] == 300 and p[5] == 800,
+    p and table.concat({ tostring(p[1]), tostring(p[3]), tostring(p[4]), tostring(p[5]) }, " "))
   window:SetSize(900, 720)
   if window.scripts.OnSizeChanged then window.scripts.OnSizeChanged(window, 900, 720) end
   grip.scripts.OnMouseUp(grip)
@@ -405,6 +455,83 @@ check("without an auction price there is no auction line", #show("belt") == 1)
 beltBound = true
 fire("BAG_UPDATE_DELAYED")
 
+-- Our own auction prices (docs/adr/0007)
+ok, out = slash("scan")
+check("/dog scan away from the auction house says to open it", ok and out:find("open the auction house first", 1, true) ~= nil, out)
+
+ahListings[GREATER_ASTRAL] = { { unitPrice = 2000, quantity = 3 }, { unitPrice = 2500, quantity = 30 } }
+ahListings[SOUL_DUST] = { { unitPrice = 500, quantity = 50 } }
+said = {}
+fire("AUCTION_HOUSE_SHOW")
+runTimers()
+check("opening the auction house searches every material", #searches == 24, "searches: " .. #searches)
+check("it says how many materials it found", table.concat(said, "\n"):find("material prices updated (2 found", 1, true) ~= nil,
+  table.concat(said, "\n"))
+-- Greater Astral: 3 x 2000 + 7 x 2500 = 23500 / 10
+check("a material's own price is its batch price", DustOrGoldDB.prices["i:11082"] and DustOrGoldDB.prices["i:11082"].p == 2350)
+-- Own prices win: Soul Dust 500 (was 1000 from Auctionator), Greater Astral 2350 (was 3000),
+-- Large Glimmering still 20000 from Auctionator.
+-- 0.75 x 1.5 x 500 + 0.20 x 1.5 x 2350 + 0.05 x 20000 = 562.5 + 705 + 1000 = 2267.5, minus 5%
+shown = show("belt")
+check("the verdict uses our own prices first, Auctionator's for the rest",
+  shown[1] and shown[1]:find("Disenchant: 2154c", 1, true) ~= nil, table.concat(shown, " | "))
+
+-- A full scan, whoever asked for it
+replicate = {
+  { link = "|cff1eff00|Hitem:727::::::::13:1490:::1:12759|h[Shortsword]|h|r", itemID = 727, count = 1, buyout = 9000, hasAllInfo = true },
+  { link = "|cff1eff00|Hitem:727::::::::13:1490:::1:12759|h[Shortsword]|h|r", itemID = 727, count = 1, buyout = 7000, hasAllInfo = true },
+  { link = nil, itemID = 10940, count = 20, buyout = 1600, hasAllInfo = false },
+  { link = nil, itemID = 4000, count = 1, buyout = 100, hasAllInfo = false }, -- gear without data: skipped
+}
+said = {}
+fire("REPLICATE_ITEM_LIST_UPDATE")
+runTimers()
+check("a full scan records gear by exact item", DustOrGoldDB.prices["i:727:b12759"] and DustOrGoldDB.prices["i:727:b12759"].p == 7000)
+check("a full scan records materials even without item data", DustOrGoldDB.prices["i:10940"] and DustOrGoldDB.prices["i:10940"].p == 80)
+check("a full scan skips gear it cannot key", DustOrGoldDB.prices["i:4000"] == nil)
+check("it says how many prices it recorded", table.concat(said, "\n"):find("full scan read: 2 prices", 1, true) ~= nil,
+  table.concat(said, "\n"))
+
+ok, out = slash("scan")
+runTimers()
+check("/dog scan right after a full scan waits for the 15 minutes", replicateRequests == 0 and out:find("15 minutes", 1, true) ~= nil, out)
+DustOrGoldDB.lastFullScan = 0
+slash("scan")
+runTimers()
+check("/dog scan asks for a full scan when allowed", replicateRequests == 1)
+fire("AUCTION_HOUSE_CLOSED")
+ok, out = slash("autoscan off")
+check("/dog autoscan off is saved", ok and DustOrGoldDB.autoScan == false, out)
+searches = {}
+fire("AUCTION_HOUSE_SHOW")
+runTimers()
+check("with autoscan off, opening the auction house searches nothing", #searches == 0)
+fire("AUCTION_HOUSE_CLOSED")
+slash("autoscan on")
+-- Back to Auctionator's prices for the checks below
+DustOrGoldDB.prices = {}
+
+-- Material data: in the tooltip from the list, and in the materials view
+shown = show("belt", nil, { isDustOrGoldRow = true })
+check("hovering an item in the list shows the materials without Shift",
+  #shown == 4 and shown[2] == "  75% Soul Dust x1-2  (1000c each, Auctionator, 4 days old)", table.concat(shown, " | "))
+check("elsewhere the materials still need Shift", #show("belt", nil, { isDustOrGoldRow = false }) == 1)
+local viewButton = find(function(w) return rawget(w, "text") == "Materials" and w.scripts.OnClick end)
+check("the window has a Materials button", viewButton ~= nil)
+if viewButton then viewButton.scripts.OnClick(viewButton) end
+texts = shownTexts()
+check("the materials view shows how many prices are known", texts:find("Material prices (3 of 24 known)", 1, true) ~= nil, texts)
+check("it lists each material with its price note",
+  texts:find("Soul Dust", 1, true) ~= nil and texts:find("1000c each, Auctionator, 4 days old", 1, true) ~= nil
+    and texts:find("Nexus Crystal", 1, true) ~= nil and texts:find("no price", 1, true) ~= nil, texts)
+check("the bag groups are hidden in the materials view", not texts:find("Disenchant these", 1, true), texts)
+check("the button now leads back to the bag items", viewButton and rawget(viewButton, "text") == "Bag items")
+local dustRow = find(function(w) return visible(w) and rawget(w, "itemID") == 10940 end)
+check("a material's row shows its item tooltip on hover", dustRow ~= nil and dustRow.canCast == false)
+if dustRow then dustRow.scripts.OnEnter(dustRow) end
+if viewButton then viewButton.scripts.OnClick(viewButton) end
+check("clicking again goes back to the bag items", shownTexts():find("Disenchant these", 1, true) ~= nil, shownTexts())
+
 -- The comparison (docs/issues/009)
 ok, out = slash("results")
 check("/dog results summarises the band", ok and out:find("uncommon armor, item level 26-30: 1 disenchants", 1, true) ~= nil, out)
@@ -420,7 +547,8 @@ check("the line carries the verdict, both values and the price age",
 
 shift = true
 shown = show("belt")
-check("Shift adds the breakdown", #shown == 4 and shown[2] == "  75% Soul Dust x1-2", table.concat(shown, " | "))
+check("Shift adds the breakdown with prices", #shown == 4
+  and shown[2] == "  75% Soul Dust x1-2  (1000c each, Auctionator, 4 days old)", table.concat(shown, " | "))
 shift = false
 
 check("an item that cannot be disenchanted shows nothing", #show("bread") == 0)

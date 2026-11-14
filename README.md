@@ -6,7 +6,7 @@ A WoW Forever addon that tells you whether an item is worth more sold to a vendo
 - **List window** (`/dog` or the minimap button): your bag items grouped into vendor, disenchant, auction, close calls and no price data, with totals and a one-click Disenchant button for enchanters.
 - **Results log:** every disenchant is recorded; `/dog results` compares what you got with the table.
 
-Material prices come from [Auctionator](https://www.curseforge.com/wow/addons/auctionator) scans (optional). `/dog help` lists all commands.
+Prices come from DustOrGold's own auction house scans: materials are searched whenever you open the auction house, and every full scan (`/dog scan`, or Auctionator's) is recorded. [Auctionator](https://www.curseforge.com/wow/addons/auctionator) prices are used for anything not scanned yet, if it is installed. `/dog help` lists all commands.
 
 ## Development
 
