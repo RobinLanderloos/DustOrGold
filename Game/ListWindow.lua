@@ -48,6 +48,10 @@ local function buildCast()
     GameTooltip:Hide()
     hideCast()
   end)
+  -- Tells the results log which item is being disenchanted (ResultsCapture).
+  castButton:HookScript("PreClick", function(self)
+    if self.row then ns.castTarget = { bag = self.row.bag, slot = self.row.slot, time = GetTime() } end
+  end)
   castButton:Hide()
 end
 

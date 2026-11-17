@@ -102,3 +102,20 @@ end)
 test("no change in the bags means nothing gained", function()
   eq(#Results.Gained({ [M.SOUL_DUST] = 3 }, { [M.SOUL_DUST] = 3 }), 0)
 end)
+
+test("the disenchanted item is the one that left its bag slot", function()
+  local before = { ["0:1"] = "belt", ["0:2"] = "boots", ["1:4"] = "ring" }
+  eq(Results.Vanished(before, { ["0:1"] = "belt", ["1:4"] = "ring" }), "0:2")
+end)
+
+test("a slot that now holds something else also counts as gone", function()
+  eq(Results.Vanished({ ["0:1"] = "belt" }, { ["0:1"] = "linen" }), "0:1")
+end)
+
+test("nothing gone means no item found", function()
+  eq(Results.Vanished({ ["0:1"] = "belt" }, { ["0:1"] = "belt", ["0:2"] = "new" }), nil)
+end)
+
+test("with several gone, the first slot is picked so the choice is stable", function()
+  eq(Results.Vanished({ ["2:3"] = "a", ["0:5"] = "b" }, {}), "0:5")
+end)

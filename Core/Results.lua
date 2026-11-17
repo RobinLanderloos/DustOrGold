@@ -51,6 +51,25 @@ function Results.Gained(before, after)
   return list
 end
 
+-- Which item a disenchant used up: the slot whose item left between two
+-- looks at the bags. before and now map "bag:slot" to the item's link; only
+-- disenchantable items need to be in before. Returns the slot key or nil.
+-- With several gone the lowest bag and slot wins, so the answer is stable.
+function Results.Vanished(before, now)
+  local gone = {}
+  for key, link in pairs(before) do
+    if now[key] ~= link then gone[#gone + 1] = key end
+  end
+  table.sort(gone, function(a, b)
+    local ab, as = a:match("^(-?%d+):(%d+)$")
+    local bb, bs = b:match("^(-?%d+):(%d+)$")
+    ab, as, bb, bs = tonumber(ab), tonumber(as), tonumber(bb), tonumber(bs)
+    if ab ~= bb then return ab < bb end
+    return as < bs
+  end)
+  return gone[1]
+end
+
 -- What one disenchant was worth next to what the table expected, priced like
 -- the verdict (Valuation.MaterialPrice, after the auction cut).
 -- materials: { [itemID] = count }; band: the item's band or nil.

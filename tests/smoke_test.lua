@@ -160,10 +160,14 @@ _G.Settings = {
 }
 _G.Enum.BagIndex = { Backpack = 0, ReagentBag = 5 }
 local beltLocked, beltBound = false, true
+local beltGone = false -- the belt has left the bags (disenchanted)
 _G.C_Container = {
   GetContainerNumSlots = function(bag) return bag == 0 and 2 or 0 end,
   GetContainerItemInfo = function(_, slot)
-    if slot == 1 then return { hyperlink = "belt", isBound = beltBound, isLocked = beltLocked } end
+    if slot == 1 then
+      if beltGone then return nil end
+      return { hyperlink = "belt", isBound = beltBound, isLocked = beltLocked }
+    end
     return { hyperlink = "bread" }
   end,
 }
@@ -401,6 +405,36 @@ check("a later bag change is not recorded again", #log == 4)
 local traced = table.concat(DustOrGoldDB.trace or {}, "\n")
 check("each step is traced in the saved variables", traced:find("recorded via bags", 1, true) ~= nil, traced)
 
+-- This client does not lock the item: it is the one that leaves the bags
+loot = { { 11083, 1 } }
+fire("UNIT_SPELLCAST_START", "player", "cast-8", 13262)
+beltGone = true
+fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-8", 13262)
+fire("LOOT_READY")
+check("an unlocked item is found by leaving the bags", #log == 5 and log[5].itemID == 1001, "records: " .. #log)
+beltGone = false
+
+-- Still shown in the bags when the loot window opens: found at the next bag update
+fire("UNIT_SPELLCAST_START", "player", "cast-9", 13262)
+fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-9", 13262)
+fire("LOOT_READY")
+check("an item still in the bags at loot time waits", #log == 5)
+beltGone = true
+fire("BAG_UPDATE_DELAYED")
+check("and is recorded once it leaves the bags", #log == 6 and log[6].itemID == 1001, "records: " .. #log)
+beltGone = false
+
+-- Cast through DustOrGold's own button: its slot is known straight away
+ns.castTarget = { bag = 0, slot = 1, time = now }
+fire("UNIT_SPELLCAST_START", "player", "cast-10", 13262)
+fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-10", 13262)
+fire("LOOT_READY")
+check("an item cast on through the Disenchant button is known without a bag change",
+  #log == 7 and log[7].itemID == 1001, "records: " .. #log)
+traced = table.concat(DustOrGoldDB.trace or {}, "\n")
+check("the trace says how the item was found", traced:find("from the Disenchant button", 1, true) ~= nil
+  and traced:find("left bag slot 0:1", 1, true) ~= nil, traced)
+
 -- The window's size
 local window = find(function(w) return rawget(w, "name") == "DustOrGoldListFrame" end)
 check("the window opens at the larger default size", window and window:GetWidth() == 640 and window:GetHeight() == 600)
@@ -604,7 +638,7 @@ check("clicking again goes back to the bag items", shownTexts():find("Disenchant
 
 -- The comparison (docs/issues/009)
 ok, out = slash("results")
-check("/dog results summarises the band", ok and out:find("uncommon armor, item level 26-30: 4 disenchants", 1, true) ~= nil, out)
+check("/dog results summarises the band", ok and out:find("uncommon armor, item level 26-30: 7 disenchants", 1, true) ~= nil, out)
 check("/dog results calls out a material the table does not list",
   out:find("not in the table: Strange Dust x1", 1, true) ~= nil, out)
 check("the results report is kept in the saved settings",
