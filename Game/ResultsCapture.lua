@@ -76,8 +76,18 @@ function handlers.LOOT_READY()
   if #materials == 0 then return trace("loot after a disenchant, but no materials in it") end
 
   local record = ns.Results.Record(cast.facts, materials, time and time() or nil)
+  -- What it was worth against the expected value, kept for the running total.
+  local facts = cast.facts
+  local band = ns.Valuation.FindBand(facts.kind, facts.quality, facts.itemLevel)
+  local worth = ns.Results.Worth(record.materials, band, Game.GetPrice)
+  record.actual, record.expected = worth.actual, worth.expected
   local log = ns.settings.log
   log[#log + 1] = record
+
+  if ns.settings.showResults then
+    ns.Say(ns.Display.DisenchantResult(tostring(cast.link), record.materials, worth, ns.L,
+      Game.MaterialName, Game.Money))
+  end
 
   if ns.debug then
     local parts = {}

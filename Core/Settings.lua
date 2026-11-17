@@ -32,6 +32,7 @@ function Settings.Normalize(stored)
   if type(s.buttonOnAll) ~= "boolean" then s.buttonOnAll = false end
   if type(s.prices) ~= "table" then s.prices = {} end
   if type(s.autoScan) ~= "boolean" then s.autoScan = true end
+  if type(s.showResults) ~= "boolean" then s.showResults = true end
   if type(s.minimap) ~= "table" then s.minimap = {} end
   if type(s.minimap.angle) ~= "number" then s.minimap.angle = Settings.DEFAULT_MINIMAP_ANGLE end
   if type(s.minimap.hide) ~= "boolean" then s.minimap.hide = false end

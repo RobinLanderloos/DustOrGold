@@ -312,7 +312,7 @@ end)
 -- Further test files get the namespace and the helpers.
 for _, file in ipairs({ "tests/facts_test.lua", "tests/display_test.lua",
   "tests/settings_test.lua", "tests/keeplist_test.lua", "tests/bagreport_test.lua",
-  "tests/results_test.lua", "tests/pricebook_test.lua" }) do
+  "tests/results_test.lua", "tests/pricebook_test.lua", "tests/worth_test.lua" }) do
   local chunk = loadfile(file)
   if chunk then chunk(ns, test, eq) end
 end

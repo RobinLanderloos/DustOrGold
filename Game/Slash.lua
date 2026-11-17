@@ -150,10 +150,14 @@ commands.config = function()
   if ns.OpenOptions then ns.OpenOptions() end
 end
 
-commands.results = function()
+commands.results = function(rest)
+  if rest == "on" or rest == "off" then
+    ns.settings.showResults = rest == "on"
+    return say(rest == "on" and L.SAY_RESULTS_ON or L.SAY_RESULTS_OFF)
+  end
   startReport()
   local summary = ns.Results.Compare(ns.settings.log)
-  for _, line in ipairs(ns.Results.Lines(summary, Game.MaterialName)) do say(line) end
+  for _, line in ipairs(ns.Results.Lines(summary, Game.MaterialName, Game.Money)) do say(line) end
   endReport()
 end
 

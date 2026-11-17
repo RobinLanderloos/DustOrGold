@@ -319,8 +319,13 @@ now = now + 3
 fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-1", 13262)
 beltLocked = false
 loot = { { 10940, 2 }, { 11083, 1 } }
+said = {}
 fire("LOOT_READY")
 local log = DustOrGoldDB.log
+local afterLoot = table.concat(said, "\n")
+check("the line after a disenchant says what had no price", afterLoot:find("no price for Strange Dust", 1, true) ~= nil, afterLoot)
+check("the record keeps the expected value", log[1] and log[1].expected == 2873 and log[1].actual == nil,
+  log[1] and tostring(log[1].expected))
 check("a disenchant is recorded once", #log == 1, "records: " .. #log)
 check("the record names the item and its levels",
   log[1] and log[1].itemID == 1001 and log[1].itemLevel == 28 and log[1].requiredLevel == 23 and log[1].kind == "armor")
@@ -346,6 +351,33 @@ beltLocked = false
 now = now + 60
 fire("LOOT_READY")
 check("loot long after the cast is not recorded", #log == 1)
+
+-- A priced disenchant: its worth against the expected value
+beltLocked = true
+fire("UNIT_SPELLCAST_START", "player", "cast-5", 13262)
+fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-5", 13262)
+beltLocked = false
+loot = { { 11083, 2 } }
+said = {}
+fire("LOOT_READY")
+afterLoot = table.concat(said, "\n")
+check("the line after a disenchant shows its worth and the expected value",
+  afterLoot:find("2x Soul Dust, worth", 1, true) ~= nil and afterLoot:find("expected", 1, true) ~= nil, afterLoot)
+check("the record keeps both values", log[2] and log[2].actual == 1900 and log[2].expected == 2873,
+  log[2] and (tostring(log[2].actual) .. " / " .. tostring(log[2].expected)))
+ok, out = slash("results")
+check("/dog results ends with the running total", out:find("1 priced disenchants", 1, true) ~= nil, out)
+ok, out = slash("results off")
+check("/dog results off turns the line off", DustOrGoldDB.showResults == false, out)
+beltLocked = true
+fire("UNIT_SPELLCAST_START", "player", "cast-6", 13262)
+fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-6", 13262)
+beltLocked = false
+said = {}
+fire("LOOT_READY")
+check("with the line off nothing is said, but it is still recorded", #log == 3 and not table.concat(said, "\n"):find("worth", 1, true),
+  table.concat(said, "\n"))
+slash("results on")
 
 -- The window's size
 local window = find(function(w) return rawget(w, "name") == "DustOrGoldListFrame" end)
@@ -550,7 +582,7 @@ check("clicking again goes back to the bag items", shownTexts():find("Disenchant
 
 -- The comparison (docs/issues/009)
 ok, out = slash("results")
-check("/dog results summarises the band", ok and out:find("uncommon armor, item level 26-30: 1 disenchants", 1, true) ~= nil, out)
+check("/dog results summarises the band", ok and out:find("uncommon armor, item level 26-30: 3 disenchants", 1, true) ~= nil, out)
 check("/dog results calls out a material the table does not list",
   out:find("not in the table: Strange Dust x1", 1, true) ~= nil, out)
 check("the results report is kept in the saved settings",

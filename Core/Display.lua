@@ -109,6 +109,35 @@ function Display.MaterialRows(L, nameOf, priceOf, money)
   return rows
 end
 
+-- How far an amount is above or below the expected one, as a coloured
+-- percentage: "+12%" in green, "-34%" in red.
+function Display.Difference(actual, expected)
+  if not expected or expected <= 0 then return "" end
+  local diff = math.floor((actual - expected) / expected * 100 + 0.5)
+  if diff >= 0 then return ("|cff40ff40+%d%%|r"):format(diff) end
+  return ("|cffff6060%d%%|r"):format(diff)
+end
+
+-- The chat line after a disenchant: what the item gave, what that was worth
+-- and how it compares with the expected value. worth is Results.Worth's.
+function Display.DisenchantResult(link, materials, worth, L, nameOf, money)
+  local parts = {}
+  for _, item in ipairs(ns.Results.MaterialList(materials)) do
+    parts[#parts + 1] = materials[item] .. "x " .. nameOf(item)
+  end
+  local got = table.concat(parts, ", ")
+  if not worth.actual then
+    local names = {}
+    for _, item in ipairs(worth.missing or {}) do names[#names + 1] = nameOf(item) end
+    return L.RESULT_NO_PRICE:format(link, got, table.concat(names, ", "))
+  end
+  local line = L.RESULT_WORTH:format(link, got, money(worth.actual))
+  if worth.expected then
+    line = line .. L.RESULT_EXPECTED:format(money(worth.expected), Display.Difference(worth.actual, worth.expected))
+  end
+  return line
+end
+
 -- What a running scan is doing, for the scan button; nil when idle.
 -- progress: { materials = {done, total}, waiting = bool, reading = {done, total} }
 local function share(part)
