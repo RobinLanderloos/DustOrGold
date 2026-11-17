@@ -9,7 +9,7 @@ ns.ListWindow = ListWindow
 
 local WIDTH, HEIGHT, ROW_HEIGHT, HEADER_GAP = 640, 600, 18, 10
 local MIN_WIDTH, MIN_HEIGHT, MAX_WIDTH, MAX_HEIGHT = 380, 240, 1400, 1200
-local SCROLL_INSET = 44 -- frame width minus the scroll child's width
+local SCROLL_INSET = 34 -- frame width minus the scroll child's width
 local DISENCHANT = 13262
 local frame, content, emptyText
 local rows = {}
@@ -107,6 +107,7 @@ local function getRow(index)
     row = CreateFrame("Button", nil, content)
     row.isDustOrGoldRow = true -- its tooltip shows the materials and prices
     row:SetHeight(ROW_HEIGHT)
+    ns.Skin.Row(row)
     row.right = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     row.right:SetPoint("RIGHT", -4, 0)
     row.right:SetJustifyH("RIGHT")
@@ -155,7 +156,7 @@ local function drawMaterials()
   header.bag, header.slot, header.itemID, header.canCast = nil, nil, nil, false
   header.left:SetFontObject("GameFontNormal")
   header.left:SetText(L.MATERIALS_TITLE:format(known, #list))
-  header.left:SetTextColor(1, 0.82, 0)
+  header.left:SetTextColor(unpack(ns.Skin.accent))
   header.right:SetText("")
 
   local y = ROW_HEIGHT + 2
@@ -243,7 +244,8 @@ local function restoreLayout()
 end
 
 local function build()
-  frame = CreateFrame("Frame", "DustOrGoldListFrame", UIParent, "BasicFrameTemplateWithInset")
+  frame = CreateFrame("Frame", "DustOrGoldListFrame", UIParent)
+  ns.Skin.Window(frame)
   frame:SetFrameStrata("HIGH")
   frame:SetMovable(true)
   frame:SetResizable(true)
@@ -262,11 +264,8 @@ local function build()
 
   -- Drag the bottom-right corner to resize.
   local grip = CreateFrame("Button", nil, frame)
-  grip:SetSize(16, 16)
-  grip:SetPoint("BOTTOMRIGHT", -4, 4)
-  grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
-  grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
-  grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+  ns.Skin.Grip(grip)
+  grip:SetPoint("BOTTOMRIGHT", -3, 3)
   grip:SetScript("OnMouseDown", function()
     -- Anchored by its centre, the window would grow on both sides at once,
     -- twice as fast as the mouse. Pin the top-left corner where it is now.
@@ -285,10 +284,14 @@ local function build()
   tinsert(UISpecialFrames, "DustOrGoldListFrame") -- Escape closes it
 
   local scroll = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
-  scroll:SetPoint("TOPLEFT", 12, -32)
-  scroll:SetPoint("BOTTOMRIGHT", -32, 38)
+  scroll:SetPoint("TOPLEFT", 10, -32)
+  scroll:SetPoint("BOTTOMRIGHT", -20, 42)
+  ns.Skin.ScrollBar(scroll)
+  local footer = ns.Skin.Divider(frame)
+  footer:SetPoint("BOTTOMLEFT", 1, 36)
+  footer:SetPoint("BOTTOMRIGHT", -1, 36)
 
-  local scan = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+  local scan = ns.Skin.Button(CreateFrame("Button", nil, frame))
   scan:SetSize(150, 22)
   scan:SetPoint("BOTTOMLEFT", 12, 10)
   scan:SetText(L.SCAN_BUTTON)
@@ -296,7 +299,7 @@ local function build()
   frame.scanButton = scan
 
   -- Switches between the bag items and the materials with their prices.
-  local view = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+  local view = ns.Skin.Button(CreateFrame("Button", nil, frame))
   view:SetSize(110, 22)
   view:SetPoint("LEFT", scan, "RIGHT", 6, 0)
   view:SetText(L.MATERIALS_BUTTON)

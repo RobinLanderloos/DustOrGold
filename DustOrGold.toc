@@ -20,6 +20,7 @@ Core\Results.lua
 Core\PriceBook.lua
 Game\Adapter.lua
 Game\Tooltip.lua
+Game\Skin.lua
 Game\Slash.lua
 Game\Options.lua
 Game\ListWindow.lua

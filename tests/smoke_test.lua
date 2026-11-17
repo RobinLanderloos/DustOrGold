@@ -366,7 +366,7 @@ if window and grip then
 end
 check("the new size is saved", DustOrGoldDB.window and DustOrGoldDB.window.width == 900 and DustOrGoldDB.window.height == 720)
 local content = beltRow and rawget(beltRow, "parentWidget")
-check("the rows follow the window's width", content and content:GetWidth() == 900 - 44,
+check("the rows follow the window's width", content and content:GetWidth() == 900 - 34,
   content and tostring(content:GetWidth()))
 
 -- Debug mode lists everything, with the button only where the game will refuse
