@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: DustOrGold
 ## Notes: Shows whether an item is worth more sold to a vendor or disenchanted.
-## Version: 0.1.1-beta
+## Version: 0.1.2-beta
 ## Author: Robin Landerloos
 ## X-License: MIT
 ## X-Website: https://github.com/RobinLanderloos/DustOrGold
