@@ -155,6 +155,7 @@ for _, event in ipairs({ "PLAYER_LOGIN", "UNIT_SPELLCAST_SENT", "UNIT_SPELLCAST_
   spy:RegisterEvent(event)
 end
 spy:SetScript("OnEvent", function(_, event, unit, ...)
+  local args = { ... }
   pcall(function()
     if event == "PLAYER_LOGIN" then
       return trace("spy: loaded, Disenchant is " .. tostring(C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(DISENCHANT)))
@@ -162,7 +163,7 @@ spy:SetScript("OnEvent", function(_, event, unit, ...)
     if event:find("^LOOT") then return trace("spy: " .. event .. " slots=" .. tostring(GetNumLootItems())) end
     if unit ~= "player" then return end
     -- SENT has (unit, target, castGUID, spellID); the others (unit, castGUID, spellID).
-    local spellID = event == "UNIT_SPELLCAST_SENT" and select(3, ...) or select(2, ...)
+    local spellID = event == "UNIT_SPELLCAST_SENT" and args[3] or args[2]
     local name = C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(spellID)
     trace(("spy: %s %s %s"):format(event:gsub("UNIT_SPELLCAST_", ""), tostring(spellID), tostring(name)))
   end)
