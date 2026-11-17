@@ -88,3 +88,17 @@ test("the results summary ends with the luck total", function()
   local lines = Results.Lines(summary, nameOf, money)
   eq(lines[#lines], "1 priced disenchants: worth 1900c, expected 2873c (|cffff6060-34%|r)")
 end)
+
+test("materials that went up in the bags between two counts are what a disenchant gave", function()
+  local gained = Results.Gained({ [M.SOUL_DUST] = 3, [M.GREATER_ASTRAL] = 0, [M.STRANGE_DUST] = 5 },
+    { [M.SOUL_DUST] = 5, [M.GREATER_ASTRAL] = 1, [M.STRANGE_DUST] = 4 })
+  eq(#gained, 2, "a material that went down (used or sold) is not counted")
+  eq(gained[1].item, M.SOUL_DUST)
+  eq(gained[1].count, 2)
+  eq(gained[2].item, M.GREATER_ASTRAL)
+  eq(gained[2].count, 1)
+end)
+
+test("no change in the bags means nothing gained", function()
+  eq(#Results.Gained({ [M.SOUL_DUST] = 3 }, { [M.SOUL_DUST] = 3 }), 0)
+end)

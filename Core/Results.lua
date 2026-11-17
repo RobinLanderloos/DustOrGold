@@ -39,6 +39,18 @@ function Results.MaterialList(materials)
   return list
 end
 
+-- What a disenchant put in the bags when no loot window showed it: every
+-- material whose count went up between before and after ({ [itemID] = n }).
+-- Returns a list of { item = itemID, count = n } in table order.
+function Results.Gained(before, after)
+  local list = {}
+  for _, item in ipairs(ns.MaterialOrder) do
+    local gain = (after[item] or 0) - (before[item] or 0)
+    if gain > 0 then list[#list + 1] = { item = item, count = gain } end
+  end
+  return list
+end
+
 -- What one disenchant was worth next to what the table expected, priced like
 -- the verdict (Valuation.MaterialPrice, after the auction cut).
 -- materials: { [itemID] = count }; band: the item's band or nil.

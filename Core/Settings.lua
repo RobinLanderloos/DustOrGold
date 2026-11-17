@@ -28,6 +28,7 @@ function Settings.Normalize(stored)
   if type(s.hasEnchanterAlt) ~= "boolean" then s.hasEnchanterAlt = true end
   if type(s.keep) ~= "table" then s.keep = {} end
   if type(s.log) ~= "table" then s.log = {} end
+  if type(s.trace) ~= "table" then s.trace = {} end
   if type(s.debugMode) ~= "boolean" then s.debugMode = false end
   if type(s.buttonOnAll) ~= "boolean" then s.buttonOnAll = false end
   if type(s.prices) ~= "table" then s.prices = {} end
