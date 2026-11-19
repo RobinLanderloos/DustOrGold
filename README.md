@@ -10,6 +10,12 @@ Made mainly for me and my friends. It's shared in case it's useful to others too
 
 Prices come from DustOrGold's own auction house scans: materials are searched whenever you open the auction house, and every full scan (`/dog scan`, or Auctionator's) is recorded. [Auctionator](https://www.curseforge.com/wow/addons/auctionator) prices are used for anything not scanned yet, if it is installed. `/dog help` lists all commands.
 
+## Screenshots
+
+![Tooltip on an item where vendoring wins](.previews/tooltip-vendor-wins.png)
+
+![Tooltip on a close call between disenchanting and vendoring](.previews/tooltip-close-call.png)
+
 ## Development
 
 The calculation lives in `Core/` and makes no game calls, so it is tested outside the game with LuaJIT:
