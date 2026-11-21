@@ -110,11 +110,13 @@ local function auctionatorByID(itemID)
 end
 
 -- Copper for one of an item, its age in days and where it came from:
--- our own scans first, Auctionator's only without one (docs/adr/0007).
+-- Auctionator's when it is installed, our own scans otherwise; each falls
+-- back on the other (docs/adr/0008).
 function Game.PriceWithAge(itemID)
   return ns.PriceBook.Choose(
     function() return ns.PriceBook.Lookup(ns.settings.prices, ns.PriceBook.Key(itemID), now()) end,
-    function() return auctionatorByID(itemID) end)
+    function() return auctionatorByID(itemID) end,
+    Game.HasAuctionator())
 end
 
 -- Copper for one of an item, or nil.
@@ -144,12 +146,14 @@ local function auctionatorItemPrice(item)
   return price, type(age) == "number" and age or nil
 end
 
--- The item's own auction price and its age in days, or nil: our own scans
--- first (by exact item, suffix included), Auctionator's otherwise.
+-- The item's own auction price and its age in days, or nil: Auctionator's
+-- when it is installed, our own scans (by exact item, suffix included)
+-- otherwise; each falls back on the other.
 function Game.ItemAuctionPrice(item)
   return ns.PriceBook.Choose(
     function() return ns.PriceBook.Lookup(ns.settings.prices, ns.PriceBook.Key(item), now()) end,
-    function() return auctionatorItemPrice(item) end)
+    function() return auctionatorItemPrice(item) end,
+    Game.HasAuctionator())
 end
 
 -- Days since the oldest price among a band's drops was seen, or nil.

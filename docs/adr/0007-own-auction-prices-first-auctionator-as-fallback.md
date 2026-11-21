@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: accepted (amended by 0008)
 supersedes: 0002
 ---
 

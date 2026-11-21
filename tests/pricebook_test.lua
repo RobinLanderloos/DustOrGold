@@ -115,6 +115,17 @@ test("our own price wins; Auctionator's is only used without one", function()
   eq(PriceBook.Choose(none, none), nil)
 end)
 
+test("with Auctionator installed its price wins; ours is only used without one", function()
+  local own = function() return 500, 2 end
+  local none = function() return nil end
+  local auctionator = function() return 900, 0 end
+  local price, age, source = PriceBook.Choose(own, auctionator, true)
+  eq(price, 900); eq(age, 0); eq(source, "auctionator")
+  price, age, source = PriceBook.Choose(own, none, true)
+  eq(price, 500); eq(age, 2); eq(source, "own")
+  eq(PriceBook.Choose(none, none, true), nil)
+end)
+
 test("a full scan can be read a few rows at a time", function()
   local scan = PriceBook.NewScan({ [M.STRANGE_DUST] = true })
   scan:Add({ key = "i:10940", itemID = M.STRANGE_DUST, count = 20, buyout = 2000 })

@@ -1,4 +1,6 @@
--- Our own auction prices (docs/adr/0007):
+-- Our own auction prices (docs/adr/0007), only when Auctionator is not
+-- installed; with Auctionator nothing here runs and its prices are used
+-- (docs/adr/0008):
 --  * when the auction house opens, search the disenchanting materials one by
 --    one (no 15-minute limit) and price each by the cheapest batch;
 --  * whenever a full scan arrives, whoever asked for it (Auctionator does
@@ -28,6 +30,11 @@ local lastRead = -math.huge
 local lastSaidQuarter = 0
 
 local function now() return time and time() or 0 end
+
+-- Auctionator keeps the prices when it is there: no searches, no reading.
+local function auctionatorKeepsPrices()
+  return ns.Game and ns.Game.HasAuctionator and ns.Game.HasAuctionator() or false
+end
 
 local function materialSet()
   local set = {}
@@ -239,6 +246,10 @@ end
 
 -- /dog scan: materials now, plus a full scan when the server allows one.
 function Scanner.Scan()
+  if auctionatorKeepsPrices() then
+    ns.Say(L.SAY_AUCTIONATOR_SCANS)
+    return
+  end
   if not isOpen then
     ns.Say(L.SAY_OPEN_AH)
     return
@@ -255,7 +266,7 @@ local handlers = {}
 
 function handlers.AUCTION_HOUSE_SHOW()
   isOpen = true
-  if ns.settings.autoScan then Scanner.ScanMaterials() end
+  if ns.settings.autoScan and not auctionatorKeepsPrices() then Scanner.ScanMaterials() end
 end
 
 function handlers.AUCTION_HOUSE_CLOSED()
@@ -270,6 +281,7 @@ handlers.ITEM_SEARCH_RESULTS_UPDATED = onItemResults
 -- The event can come more than once for one scan (also when Auctionator
 -- asked for it); reading the same scan twice would only cost time.
 function handlers.REPLICATE_ITEM_LIST_UPDATE()
+  if auctionatorKeepsPrices() then return end
   if reading or now() - lastRead < REREAD_GUARD then return end
   fullScanRequested = false
   ns.settings.lastFullScan = now()

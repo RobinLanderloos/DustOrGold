@@ -129,13 +129,17 @@ function PriceBook.Lookup(book, key, now)
   return entry.p, math.max(0, math.floor((now - entry.t) / DAY))
 end
 
--- Our own price first, the fallback's only without one.
--- Each source is a function returning price, ageDays.
+-- Our own price first, Auctionator's only without one; with
+-- auctionatorFirst (Auctionator is installed, docs/adr/0008) the other way
+-- round. Each source is a function returning price, ageDays.
 -- Returns price, ageDays, "own" | "auctionator"; nil without either.
-function PriceBook.Choose(own, fallback)
-  local price, age = own()
-  if price then return price, age, "own" end
-  price, age = fallback()
-  if price then return price, age, "auctionator" end
+function PriceBook.Choose(own, auctionator, auctionatorFirst)
+  local order = auctionatorFirst
+    and { { auctionator, "auctionator" }, { own, "own" } }
+    or { { own, "own" }, { auctionator, "auctionator" } }
+  for _, source in ipairs(order) do
+    local price, age = source[1]()
+    if price then return price, age, source[2] end
+  end
   return nil
 end

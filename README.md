@@ -8,7 +8,7 @@ Made mainly for me and my friends. It's shared in case it's useful to others too
 - **List window** (`/dog` or the minimap button): your bag items grouped into vendor, disenchant, auction, close calls and no price data, with totals and a one-click Disenchant button for enchanters.
 - **Results log:** every disenchant is recorded. Right after it, a chat line shows what the materials are worth at current prices and how that compares with the expected value (`/dog results off` hides it). `/dog results` compares what you got with the table and gives the running total.
 
-Prices come from DustOrGold's own auction house scans: materials are searched whenever you open the auction house, and every full scan (`/dog scan`, or Auctionator's) is recorded. [Auctionator](https://www.curseforge.com/wow/addons/auctionator) prices are used for anything not scanned yet, if it is installed. `/dog help` lists all commands.
+If [Auctionator](https://www.curseforge.com/wow/addons/auctionator) is installed, DustOrGold uses its prices and does no scanning of its own. Without Auctionator, DustOrGold scans the auction house itself: materials are searched whenever you open the auction house, and `/dog scan` also runs a full scan. `/dog help` lists all commands.
 
 ## Development
 
