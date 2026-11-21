@@ -297,11 +297,18 @@ local function build()
   scan:SetText(L.SCAN_BUTTON)
   scan:SetScript("OnClick", function() if ns.Scanner then ns.Scanner.Scan() end end)
   frame.scanButton = scan
+  -- With Auctionator installed its prices are used and there is nothing to scan.
+  local ownScans = not ns.Game.HasAuctionator()
+  scan:SetShown(ownScans)
 
   -- Switches between the bag items and the materials with their prices.
   local view = ns.Skin.Button(CreateFrame("Button", nil, frame))
   view:SetSize(110, 22)
-  view:SetPoint("LEFT", scan, "RIGHT", 6, 0)
+  if ownScans then
+    view:SetPoint("LEFT", scan, "RIGHT", 6, 0)
+  else
+    view:SetPoint("BOTTOMLEFT", 12, 10)
+  end
   view:SetText(L.MATERIALS_BUTTON)
   view:SetScript("OnClick", function(self)
     showMaterials = not showMaterials

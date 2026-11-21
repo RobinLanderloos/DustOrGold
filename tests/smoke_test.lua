@@ -455,25 +455,50 @@ check("without an auction price there is no auction line", #show("belt") == 1)
 beltBound = true
 fire("BAG_UPDATE_DELAYED")
 
--- Our own auction prices (docs/adr/0007)
+-- With Auctionator installed its prices are used and nothing is scanned (docs/adr/0008)
+DustOrGoldDB.prices["i:11083"] = { p = 500, t = 0 } -- an own Soul Dust price from before
+ahListings[SOUL_DUST] = { { unitPrice = 500, quantity = 50 } }
+said, searches = {}, {}
+fire("AUCTION_HOUSE_SHOW")
+runTimers()
+check("with Auctionator, opening the auction house searches nothing", #searches == 0, "searches: " .. #searches)
+ok, out = slash("scan")
+check("with Auctionator, /dog scan points to Auctionator", ok and out:find("scan with Auctionator", 1, true) ~= nil, out)
+check("with Auctionator, /dog scan searches nothing", #searches == 0 and replicateRequests == 0)
+replicate = { { link = nil, itemID = 10940, count = 20, buyout = 1600, hasAllInfo = false } }
+fire("REPLICATE_ITEM_LIST_UPDATE")
+runTimers()
+check("with Auctionator, a full scan is not read", DustOrGoldDB.prices["i:10940"] == nil)
+shown = show("belt")
+check("with Auctionator, its prices win over our own",
+  shown[1] and shown[1]:find("Disenchant: 2873c", 1, true) ~= nil, table.concat(shown, " | "))
+local hiddenScan = find(function(w) return w.scripts.OnClick and (rawget(w, "text") == "Scan auction house") end)
+check("with Auctionator, the window has no visible scan button", hiddenScan ~= nil and not visible(hiddenScan))
+fire("AUCTION_HOUSE_CLOSED")
+DustOrGoldDB.prices["i:11083"] = nil
+ahListings[SOUL_DUST] = nil
+
+-- Our own auction prices, without Auctionator (docs/adr/0007)
+local auctionatorAddon = _G.Auctionator
+_G.Auctionator = nil
 ok, out = slash("scan")
 check("/dog scan away from the auction house says to open it", ok and out:find("open the auction house first", 1, true) ~= nil, out)
 
 ahListings[GREATER_ASTRAL] = { { unitPrice = 2000, quantity = 3 }, { unitPrice = 2500, quantity = 30 } }
 ahListings[SOUL_DUST] = { { unitPrice = 500, quantity = 50 } }
-said = {}
+ahListings[LARGE_GLIMMERING] = { { unitPrice = 20000, quantity = 10 } }
+said, searches = {}, {}
 fire("AUCTION_HOUSE_SHOW")
 runTimers()
 check("opening the auction house searches every material", #searches == 24, "searches: " .. #searches)
-check("it says how many materials it found", table.concat(said, "\n"):find("material prices updated (2 found", 1, true) ~= nil,
+check("it says how many materials it found", table.concat(said, "\n"):find("material prices updated (3 found", 1, true) ~= nil,
   table.concat(said, "\n"))
 -- Greater Astral: 3 x 2000 + 7 x 2500 = 23500 / 10
 check("a material's own price is its batch price", DustOrGoldDB.prices["i:11082"] and DustOrGoldDB.prices["i:11082"].p == 2350)
--- Own prices win: Soul Dust 500 (was 1000 from Auctionator), Greater Astral 2350 (was 3000),
--- Large Glimmering still 20000 from Auctionator.
+-- Own prices: Soul Dust 500, Greater Astral 2350, Large Glimmering 20000.
 -- 0.75 x 1.5 x 500 + 0.20 x 1.5 x 2350 + 0.05 x 20000 = 562.5 + 705 + 1000 = 2267.5, minus 5%
 shown = show("belt")
-check("the verdict uses our own prices first, Auctionator's for the rest",
+check("without Auctionator, the verdict uses our own prices",
   shown[1] and shown[1]:find("Disenchant: 2154c", 1, true) ~= nil, table.concat(shown, " | "))
 
 -- A full scan, whoever asked for it
@@ -525,6 +550,7 @@ check("with autoscan off, opening the auction house searches nothing", #searches
 fire("AUCTION_HOUSE_CLOSED")
 slash("autoscan on")
 -- Back to Auctionator's prices for the checks below
+_G.Auctionator = auctionatorAddon
 DustOrGoldDB.prices = {}
 
 -- Material data: in the tooltip from the list, and in the materials view
