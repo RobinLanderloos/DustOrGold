@@ -23,6 +23,91 @@ function Results.Record(facts, received, time)
   }
 end
 
+-- The materials of a record in table order (dusts, essences, shards,
+-- crystals), then anything else by ID.
+function Results.MaterialList(materials)
+  local list, listed = {}, {}
+  for _, item in ipairs(ns.MaterialOrder) do
+    if materials[item] then list[#list + 1] = item; listed[item] = true end
+  end
+  local rest = {}
+  for item in pairs(materials) do
+    if not listed[item] then rest[#rest + 1] = item end
+  end
+  table.sort(rest)
+  for _, item in ipairs(rest) do list[#list + 1] = item end
+  return list
+end
+
+-- What a disenchant put in the bags when no loot window showed it: every
+-- material whose count went up between before and after ({ [itemID] = n }).
+-- Returns a list of { item = itemID, count = n } in table order.
+function Results.Gained(before, after)
+  local list = {}
+  for _, item in ipairs(ns.MaterialOrder) do
+    local gain = (after[item] or 0) - (before[item] or 0)
+    if gain > 0 then list[#list + 1] = { item = item, count = gain } end
+  end
+  return list
+end
+
+-- Which item a disenchant used up: the slot whose item left between two
+-- looks at the bags. before and now map "bag:slot" to the item's link; only
+-- disenchantable items need to be in before. Returns the slot key or nil.
+-- With several gone the lowest bag and slot wins, so the answer is stable.
+function Results.Vanished(before, now)
+  local gone = {}
+  for key, link in pairs(before) do
+    if now[key] ~= link then gone[#gone + 1] = key end
+  end
+  table.sort(gone, function(a, b)
+    local ab, as = a:match("^(-?%d+):(%d+)$")
+    local bb, bs = b:match("^(-?%d+):(%d+)$")
+    ab, as, bb, bs = tonumber(ab), tonumber(as), tonumber(bb), tonumber(bs)
+    if ab ~= bb then return ab < bb end
+    return as < bs
+  end)
+  return gone[1]
+end
+
+-- What one disenchant was worth next to what the table expected, priced like
+-- the verdict (Valuation.MaterialPrice, after the auction cut).
+-- materials: { [itemID] = count }; band: the item's band or nil.
+-- Returns { actual = copper or nil (a received material has no price),
+--           expected = copper or nil, missing = { itemID, ... } }.
+function Results.Worth(materials, band, getPrice, auctionCut)
+  local V = ns.Valuation
+  local cut = auctionCut or V.AUCTION_CUT
+  local total, missing = 0, {}
+  for _, item in ipairs(Results.MaterialList(materials)) do
+    local price = V.MaterialPrice(item, getPrice)
+    if price then
+      total = total + materials[item] * price
+    else
+      missing[#missing + 1] = item
+    end
+  end
+  local worth = { missing = missing }
+  -- The small nudge keeps 900 * 0.95 from flooring to 854.
+  if #missing == 0 then worth.actual = math.floor(total * (1 - cut) + 1e-6) end
+  if band then worth.expected = V.DisenchantValue(band, getPrice, auctionCut) end
+  return worth
+end
+
+-- The running total over the log: records that kept both values.
+-- Returns { count, actual, expected }.
+function Results.Luck(records)
+  local luck = { count = 0, actual = 0, expected = 0 }
+  for _, r in ipairs(records) do
+    if type(r.actual) == "number" and type(r.expected) == "number" then
+      luck.count = luck.count + 1
+      luck.actual = luck.actual + r.actual
+      luck.expected = luck.expected + r.expected
+    end
+  end
+  return luck
+end
+
 -- The chance per material of a band; a material can appear in more than one drop.
 local function chances(band)
   local byItem, order = {}, {}
@@ -110,6 +195,7 @@ function Results.Compare(records)
     }
   end
 
+  summary.luck = Results.Luck(records)
   table.sort(summary.bands, function(a, b)
     if a.kind ~= b.kind then return a.kind < b.kind end
     if a.quality ~= b.quality then return a.quality < b.quality end
@@ -122,8 +208,9 @@ local function percent(share)
   return math.floor(share * 100 + 0.5)
 end
 
--- The summary as chat lines. nameOf(itemID) returns a material's name.
-function Results.Lines(summary, nameOf)
+-- The summary as chat lines. nameOf(itemID) returns a material's name;
+-- money(copper) formats an amount for the luck total.
+function Results.Lines(summary, nameOf, money)
   local L = ns.L
   local lines = {}
   for _, band in ipairs(summary.bands) do
@@ -142,6 +229,12 @@ function Results.Lines(summary, nameOf)
   local levels = summary.levels
   if levels.itemLevel + levels.requiredLevel > 0 then
     lines[#lines + 1] = L.RESULTS_LEVELS:format(levels.itemLevel, levels.requiredLevel)
+  end
+  local luck = summary.luck
+  if luck and luck.count > 0 then
+    money = money or tostring
+    lines[#lines + 1] = L.RESULTS_LUCK:format(luck.count, money(luck.actual), money(luck.expected),
+      ns.Display.Difference(luck.actual, luck.expected))
   end
   if #lines == 0 then lines[1] = L.RESULTS_EMPTY end
   return lines

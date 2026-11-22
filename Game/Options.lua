@@ -53,8 +53,16 @@ local function build()
   end)
   help(minimap, L.OPTION_MINIMAP, L.OPTION_MINIMAP_HELP)
 
+  local results = ns.Skin.Check(CreateFrame("CheckButton", nil, panel))
+  results:SetPoint("TOPLEFT", minimap, "BOTTOMLEFT", 0, -2)
+  results.Text:SetText(L.OPTION_RESULTS)
+  results:SetScript("OnClick", function(self)
+    ns.settings.showResults = self:GetChecked() and true or false
+  end)
+  help(results, L.OPTION_RESULTS, L.OPTION_RESULTS_HELP)
+
   local label = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  label:SetPoint("TOPLEFT", minimap, "BOTTOMLEFT", 4, -14)
+  label:SetPoint("TOPLEFT", results, "BOTTOMLEFT", 4, -14)
   label:SetText(L.OPTION_MARGIN)
 
   local margin = ns.Skin.Input(CreateFrame("EditBox", nil, panel))
@@ -80,6 +88,7 @@ local function build()
     alt:SetChecked(ns.settings.hasEnchanterAlt)
     buttonAll:SetChecked(ns.settings.buttonOnAll)
     minimap:SetChecked(not ns.settings.minimap.hide)
+    results:SetChecked(ns.settings.showResults)
     showMargin()
   end)
 

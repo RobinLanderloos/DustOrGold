@@ -160,10 +160,14 @@ _G.Settings = {
 }
 _G.Enum.BagIndex = { Backpack = 0, ReagentBag = 5 }
 local beltLocked, beltBound = false, true
+local beltGone = false -- the belt has left the bags (disenchanted)
 _G.C_Container = {
   GetContainerNumSlots = function(bag) return bag == 0 and 2 or 0 end,
   GetContainerItemInfo = function(_, slot)
-    if slot == 1 then return { hyperlink = "belt", isBound = beltBound, isLocked = beltLocked } end
+    if slot == 1 then
+      if beltGone then return nil end
+      return { hyperlink = "belt", isBound = beltBound, isLocked = beltLocked }
+    end
     return { hyperlink = "bread" }
   end,
 }
@@ -174,6 +178,7 @@ local now = 100
 _G.GetTime = function() return now end
 _G.time = function() return 1763100000 end
 local loot = {}
+bagCounts = {} -- materials in the bags, by item ID
 _G.GetNumLootItems = function() return #loot end
 _G.GetLootSlotLink = function(i) return loot[i] and ("|cffffffff|Hitem:" .. loot[i][1] .. "::::|h[x]|h|r") end
 _G.GetLootSlotInfo = function(i) return 133, "x", loot[i] and loot[i][2] end
@@ -186,6 +191,7 @@ _G.C_Item = {
   end,
   GetDetailedItemLevelInfo = function(item) return items[item] and items[item][4] end,
   GetItemNameByID = function() return nil end,
+  GetItemCount = function(id) return bagCounts[id] or 0 end,
 }
 _G.C_CurrencyInfo = { GetCoinTextureString = function(copper) return copper .. "c" end }
 _G.C_SpellBook = { IsSpellKnown = function() return false end }
@@ -319,8 +325,13 @@ now = now + 3
 fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-1", 13262)
 beltLocked = false
 loot = { { 10940, 2 }, { 11083, 1 } }
+said = {}
 fire("LOOT_READY")
 local log = DustOrGoldDB.log
+local afterLoot = table.concat(said, "\n")
+check("the line after a disenchant says what had no price", afterLoot:find("no price for Strange Dust", 1, true) ~= nil, afterLoot)
+check("the record keeps the expected value", log[1] and log[1].expected == 2873 and log[1].actual == nil,
+  log[1] and tostring(log[1].expected))
 check("a disenchant is recorded once", #log == 1, "records: " .. #log)
 check("the record names the item and its levels",
   log[1] and log[1].itemID == 1001 and log[1].itemLevel == 28 and log[1].requiredLevel == 23 and log[1].kind == "armor")
@@ -346,6 +357,83 @@ beltLocked = false
 now = now + 60
 fire("LOOT_READY")
 check("loot long after the cast is not recorded", #log == 1)
+
+-- A priced disenchant: its worth against the expected value
+beltLocked = true
+fire("UNIT_SPELLCAST_START", "player", "cast-5", 13262)
+fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-5", 13262)
+beltLocked = false
+loot = { { 11083, 2 } }
+said = {}
+fire("LOOT_READY")
+afterLoot = table.concat(said, "\n")
+check("the line after a disenchant shows its worth and the expected value",
+  afterLoot:find("2x Soul Dust, worth", 1, true) ~= nil and afterLoot:find("expected", 1, true) ~= nil, afterLoot)
+check("the record keeps both values", log[2] and log[2].actual == 1900 and log[2].expected == 2873,
+  log[2] and (tostring(log[2].actual) .. " / " .. tostring(log[2].expected)))
+ok, out = slash("results")
+check("/dog results ends with the running total", out:find("1 priced disenchants", 1, true) ~= nil, out)
+ok, out = slash("results off")
+check("/dog results off turns the line off", DustOrGoldDB.showResults == false, out)
+beltLocked = true
+fire("UNIT_SPELLCAST_START", "player", "cast-6", 13262)
+fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-6", 13262)
+beltLocked = false
+said = {}
+fire("LOOT_READY")
+check("with the line off nothing is said, but it is still recorded", #log == 3 and not table.concat(said, "\n"):find("worth", 1, true),
+  table.concat(said, "\n"))
+slash("results on")
+
+-- No loot window: the materials go straight into the bags
+beltLocked = true
+fire("UNIT_SPELLCAST_START", "player", "cast-7", 13262)
+fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-7", 13262)
+beltLocked = false
+loot = {}
+fire("LOOT_READY")
+check("an empty loot window does not end the capture", #log == 3)
+bagCounts[11083] = 2
+said = {}
+fire("BAG_UPDATE_DELAYED")
+afterLoot = table.concat(said, "\n")
+check("materials that arrive in the bags are recorded", #log == 4 and log[4].materials[11083] == 2,
+  "records: " .. #log)
+check("and get the line after the disenchant", afterLoot:find("2x Soul Dust, worth", 1, true) ~= nil, afterLoot)
+fire("BAG_UPDATE_DELAYED")
+check("a later bag change is not recorded again", #log == 4)
+local traced = table.concat(DustOrGoldDB.trace or {}, "\n")
+check("each step is traced in the saved variables", traced:find("recorded via bags", 1, true) ~= nil, traced)
+
+-- This client does not lock the item: it is the one that leaves the bags
+loot = { { 11083, 1 } }
+fire("UNIT_SPELLCAST_START", "player", "cast-8", 13262)
+beltGone = true
+fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-8", 13262)
+fire("LOOT_READY")
+check("an unlocked item is found by leaving the bags", #log == 5 and log[5].itemID == 1001, "records: " .. #log)
+beltGone = false
+
+-- Still shown in the bags when the loot window opens: found at the next bag update
+fire("UNIT_SPELLCAST_START", "player", "cast-9", 13262)
+fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-9", 13262)
+fire("LOOT_READY")
+check("an item still in the bags at loot time waits", #log == 5)
+beltGone = true
+fire("BAG_UPDATE_DELAYED")
+check("and is recorded once it leaves the bags", #log == 6 and log[6].itemID == 1001, "records: " .. #log)
+beltGone = false
+
+-- Cast through DustOrGold's own button: its slot is known straight away
+ns.castTarget = { bag = 0, slot = 1, time = now }
+fire("UNIT_SPELLCAST_START", "player", "cast-10", 13262)
+fire("UNIT_SPELLCAST_SUCCEEDED", "player", "cast-10", 13262)
+fire("LOOT_READY")
+check("an item cast on through the Disenchant button is known without a bag change",
+  #log == 7 and log[7].itemID == 1001, "records: " .. #log)
+traced = table.concat(DustOrGoldDB.trace or {}, "\n")
+check("the trace says how the item was found", traced:find("from the Disenchant button", 1, true) ~= nil
+  and traced:find("left bag slot 0:1", 1, true) ~= nil, traced)
 
 -- The window's size
 local window = find(function(w) return rawget(w, "name") == "DustOrGoldListFrame" end)
@@ -576,7 +664,7 @@ check("clicking again goes back to the bag items", shownTexts():find("Disenchant
 
 -- The comparison (docs/issues/009)
 ok, out = slash("results")
-check("/dog results summarises the band", ok and out:find("uncommon armor, item level 26-30: 1 disenchants", 1, true) ~= nil, out)
+check("/dog results summarises the band", ok and out:find("uncommon armor, item level 26-30: 7 disenchants", 1, true) ~= nil, out)
 check("/dog results calls out a material the table does not list",
   out:find("not in the table: Strange Dust x1", 1, true) ~= nil, out)
 check("the results report is kept in the saved settings",
