@@ -248,7 +248,7 @@ local function restoreLayout()
 end
 
 local function build()
-  frame = CreateFrame("Frame", "DustOrGoldListFrame", UIParent)
+  frame = ns.Skin.Create("Frame", "DustOrGoldListFrame", UIParent, ns.Skin.TEMPLATES.Window)
   ns.Skin.Window(frame)
   frame:SetFrameStrata("HIGH")
   frame:SetMovable(true)
@@ -295,7 +295,7 @@ local function build()
   footer:SetPoint("BOTTOMLEFT", 1, 36)
   footer:SetPoint("BOTTOMRIGHT", -1, 36)
 
-  local scan = ns.Skin.Button(CreateFrame("Button", nil, frame))
+  local scan = ns.Skin.Button(ns.Skin.Create("Button", nil, frame, ns.Skin.TEMPLATES.Button))
   scan:SetSize(150, 22)
   scan:SetPoint("BOTTOMLEFT", 12, 10)
   scan:SetText(L.SCAN_BUTTON)
@@ -306,7 +306,7 @@ local function build()
   scan:SetShown(ownScans)
 
   -- Switches between the bag items and the materials with their prices.
-  local view = ns.Skin.Button(CreateFrame("Button", nil, frame))
+  local view = ns.Skin.Button(ns.Skin.Create("Button", nil, frame, ns.Skin.TEMPLATES.Button))
   view:SetSize(110, 22)
   if ownScans then
     view:SetPoint("LEFT", scan, "RIGHT", 6, 0)
